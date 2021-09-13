@@ -15,14 +15,37 @@ class Plane:
         return np.array([sol[0], sol[1]])
 
 
+class Sphere:
+    """https://math.stackexchange.com/questions/268064/move-a-point-up-and-down-along-a-sphere"""
+
+    def __init__(self, radius) -> None:
+        self.radius = radius
+        self.current_pos = [90, 0]
+
+    def rotate(self, x, y):
+        self.current_pos[0] = (self.current_pos[0] + x) % 360
+        self.current_pos[1] = (self.current_pos[1] + y) % 360
+
+        theta, phi = np.deg2rad(self.current_pos[0]), np.deg2rad(self.current_pos[1])
+        return np.array(
+            [
+                self.radius * np.sin(theta) * np.cos(phi),
+                self.radius * np.sin(theta) * np.sin(phi),
+                self.radius * np.cos(theta),
+            ]
+        )
+
+
 def getQuadrant(x: float, y: float):
+    if x == 0 and y == 0:
+        return -1
     if x >= 0 and y >= 0:
         return 1
     elif x > 0 and y < 0:
         return 2
     elif x <= 0 and y <= 0:
         return 3
-    elif x < 0 and y < 0:
+    elif x < 0 and y > 0:
         return 4
 
 
