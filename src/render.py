@@ -157,6 +157,7 @@ if __name__ == "__main__":
     # cube1 = objects3D.Cube(np.array([100, 100, 0]), 80, colours)
     # cube2 = objects3D.Cube(np.array([100, -100, 0]), 80, colours)
     # objects_to_render = [cube1, cube2]
+    pygame.display.set_caption("Rubicks Cube")
     sphere = Sphere(800)
     look_point = np.array([0, 0, 0])
 
