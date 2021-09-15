@@ -7,6 +7,7 @@ class ProjectionRenderer:
     def __init__(self, canvas_distance: float, width: int, height: int) -> None:
         self.switch = True
         self.last_quadrant = None
+        # TODO: need to integrate canvas_distance
         self.canvas_distance = canvas_distance
         pygame.init()
         pygame.font.init()
@@ -37,6 +38,7 @@ class ProjectionRenderer:
         u, v, w = u / np.linalg.norm(u), v / np.linalg.norm(v), w / np.linalg.norm(w)
         canvas = Plane(-u / 2, v, w)
 
+        # get Barycentric coordinates for each vertex from every object on the plane
         num_vertices_total = 0
         canvas_coords = []
         for obj in objects:
