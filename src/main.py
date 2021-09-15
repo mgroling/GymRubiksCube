@@ -73,7 +73,7 @@ if __name__ == "__main__":
             pygame.display.update()
 
         time_passed = time.time() - cur_time
-        wait = 0.0166666666 - time_passed
+        wait = 1 / 60 - time_passed
         # 60 fps
         if wait > 0:
             time.sleep(wait)
