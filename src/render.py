@@ -36,8 +36,9 @@ class ProjectionRenderer:
             v = np.array([-u[1], u[0], 0])
         w = np.cross(u, v)
 
-        u, v, w = u / np.linalg.norm(u), v / np.linalg.norm(v), w / np.linalg.norm(w)
+        v, w = v / np.linalg.norm(v), w / np.linalg.norm(w)
         canvas = Plane(-u / 2, v, w)
+        # canvas = Plane(pov + self.canvas_distance * (u / np.linalg.norm(u)), v, w)
 
         # get Barycentric coordinates for each vertex from every object on the plane
         num_vertices_total = 0
