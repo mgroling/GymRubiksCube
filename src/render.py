@@ -18,6 +18,7 @@ class ProjectionRenderer:
         self.dis = pygame.display.set_mode((width, height))
 
     # TODO: there's still a problem when u[0] and u[1] are zero, not sure how to fix it yet
+    # TODO: integrate canvas distance
     def getCanvasCoordinates(self, pov: np.array, look_point: np.array, objects: list):
         # create a plane that is perpendicular to the view vector and use it as canvas
         u = look_point - pov
@@ -58,7 +59,7 @@ class ProjectionRenderer:
 
         return canvas_coords, num_vertices_total
 
-    # this function is terribly slow, need to find a better/correct way to determine visiblity of faces
+    # TODO: this function is terribly slow, need to find a better/correct way to determine visiblity of faces
     def computeVisibleFaces(
         self, objects: list, canvas_coords, num_vertices_total: int
     ):
