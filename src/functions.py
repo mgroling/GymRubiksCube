@@ -14,6 +14,9 @@ class Plane:
 
         return np.array([sol[0], sol[1]])
 
+    def convertBarycentricCoordinates(self, x, y):
+        return self.origin + x * self.vector1 + y * self.vector2
+
 
 class Sphere:
     """https://math.stackexchange.com/questions/268064/move-a-point-up-and-down-along-a-sphere"""

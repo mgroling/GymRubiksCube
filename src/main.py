@@ -1,14 +1,14 @@
 import pygame
 import numpy as np
 import time
-import objects3D
+import objects3D as o3
 from render import ProjectionRenderer, RaycastRenderer
 from functions import *
 
 if __name__ == "__main__":
     WIDTH, HEIGHT = 800, 800
-    p = ProjectionRenderer(100, WIDTH, HEIGHT)
-    colours = [
+    p = ProjectionRenderer(100, WIDTH, HEIGHT, (50, 50, 50))
+    colors = [
         (255, 213, 0),
         (0, 155, 72),
         (200, 100, 0),
@@ -20,11 +20,10 @@ if __name__ == "__main__":
     for x in [100, 0, -100]:
         for y in [100, 0, -100]:
             for z in [100, 0, -100]:
-                objects_to_render.append(
-                    objects3D.Cube(np.array([x, y, z]), 90, colours)
-                )
-    cube1 = objects3D.Cube(np.array([0, 0, 0]), 400, colours)
-    objects_to_render = [cube1]
+                objects_to_render.append(o3.CubePrj(o3.Vector3D([x, y, z]), 90, colors))
+
+    # objects_to_render = [o3.CubePrj(o3.Vector3D([0, 0, 0]), 40, colors)]
+
     pygame.display.set_caption("Rubicks Cube")
     sphere = Sphere(800)
     look_point = np.array([0, 0, 0])
@@ -69,7 +68,8 @@ if __name__ == "__main__":
                 "FPS {}".format(min(int(1 / time_passed), 60)), False, (255, 255, 255)
             )
             p.dis.blit(text_surface, (10, 10))
-            pygame.display.update()
+
+        pygame.display.update()
 
         time_passed = time.time() - cur_time
         wait = 1 / 60 - time_passed

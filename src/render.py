@@ -1,10 +1,13 @@
 import numpy as np
 import pygame
 from functions import *
+import objects3D as o3
 
 
 class ProjectionRenderer:
-    def __init__(self, canvas_distance: float, width: int, height: int) -> None:
+    def __init__(
+        self, canvas_distance: float, width: int, height: int, bgColor
+    ) -> None:
         self.switch = True
         self.last_quadrant = None
         # TODO: need to integrate canvas_distance
@@ -13,6 +16,7 @@ class ProjectionRenderer:
         pygame.font.init()
         self.width, self.height = width, height
         self.dis = pygame.display.set_mode((width, height))
+        self.bgColor = bgColor
 
     # TODO: there's still a problem when u[0] and u[1] are zero, not sure how to fix it yet
     # TODO: integrate canvas distance
@@ -67,7 +71,6 @@ class ProjectionRenderer:
             for face in obj.faces:
                 face._resetCoordsInfo()
 
-        self.dis.fill((50, 50, 50))
         visible_faces = []
         min_distances = [elem[0][1] for elem in canvas_coords]
         current_elem = [0 for elem in canvas_coords]
@@ -105,6 +108,7 @@ class ProjectionRenderer:
         return visible_faces
 
     def render(self, pov: np.array, look_point: np.array, objects: list):
+        self.dis.fill(self.bgColor)
         canvas_coordinates, num_vertices_total = self.getCanvasCoordinates(
             pov, look_point, objects
         )
@@ -120,7 +124,7 @@ class ProjectionRenderer:
             polygon = face.getPolygonOfSelf()
             pygame.draw.polygon(
                 self.dis,
-                face.colour,
+                face.color,
                 np.array([self.width / 2, self.height / 2]) + polygon,
             )
             # for vertex in polygon:
@@ -129,11 +133,12 @@ class ProjectionRenderer:
             #         (255, 0, 0),
             #         [self.width / 2 + vertex[0], self.height / 2 + vertex[1], 5, 5],
             #     )
-        pygame.display.update()
 
 
 class RaycastRenderer:
-    def __init__(self, canvas_distance: float, width: int, height: int) -> None:
+    def __init__(
+        self, canvas_distance: float, width: int, height: int, bgColor
+    ) -> None:
         self.switch = True
         self.last_quadrant = None
         self.canvas_distance = canvas_distance
@@ -141,9 +146,59 @@ class RaycastRenderer:
         pygame.font.init()
         self.width, self.height = width, height
         self.dis = pygame.display.set_mode((width, height))
+        self.bgColor = bgColor
 
-    def getColourMap(self, pov: np.array, look_point: np.array, objects: list):
-        pass
+    def _getColorMap(self, pov: o3.Vector3D, look_point: o3.Vector3D, objects: list):
+        u = look_point - pov
+        cur_quadrant = getQuadrant(u[0], u[1])
+        if cur_quadrant != -1:
+            if (
+                self.last_quadrant != None
+                and max(cur_quadrant, self.last_quadrant)
+                - min(cur_quadrant, self.last_quadrant)
+                == 2
+            ):
+                self.switch = not self.switch
+            self.last_quadrant = cur_quadrant
 
-    def render(self):
-        pass
+        if self.switch:
+            v = np.array([u[1], -u[0], 0])
+        else:
+            v = np.array([-u[1], u[0], 0])
+        w = np.cross(u, v)
+
+        v, w = v / np.linalg.norm(v), w / np.linalg.norm(w)
+        canvas = Plane(-u / 2, v, w)
+
+        # https://stackoverflow.com/questions/26357200/how-to-display-a-color-map-as-pygame-surface-generated-from-an-array-in-real-tim
+        return self._getColorMapHelper(pov, canvas, objects)
+
+    def _getColorMapHelper(self, pov: o3.Vector3D, canvas: Plane, objects):
+        rgb_map = np.zeros((self.width, self.height, 3))
+        for i in range(self.width):
+            for j in range(self.height):
+                ray = o3.Ray(
+                    pov,
+                    canvas.convertBarycentricCoordinates(
+                        -self.width / 2 + i, -self.height / 2 + j
+                    )
+                    - pov,
+                )
+                records = [o3.HitRecord() for _ in range(len(objects))]
+                any_hit = False
+                for k, obj in enumerate(objects):
+                    if obj.hit(ray, records[k]):
+                        any_hit = True
+
+                if any_hit:
+                    records = [elem for elem in records if elem.t != None]
+                    min_record = min(records, key=lambda x: x.t)
+                    rgb_map[i, j] = min_record.color
+                else:
+                    rgb_map[i, j] = self.bgColor
+
+        return rgb_map
+
+    def render(self, pov: o3.Vector3D, look_point: o3.Vector3D, objects: list):
+        rgbmap = self._getColorMap(pov, look_point, objects)
+        pygame.surfarray.blit_array(self.dis, rgbmap)
