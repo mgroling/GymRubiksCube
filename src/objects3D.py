@@ -24,8 +24,31 @@ class Hittable(abc.ABC):
         pass
 
 
-class Rectangle(Hittable):
-    def __init__(self) -> None:
+class Rectangle3D(Hittable):
+    def __init__(self, origin, vec1, vec2, colour) -> None:
+        super().__init__()
+        self.origin = origin
+        self.vec1 = vec1
+        self.vec2 = vec2
+        self.colour = colour
+
+    def hit(self, ray: Ray, hit_record: HitRecord) -> bool:
+        a = np.array([self.vec1, self.vec2, -ray.direction]).T
+        b = ray.origin - self.origin
+        sol = np.linalg.solve(a, b)
+
+        if sol[0] >= 0 and sol[0] <= 1 and sol[1] >= 0 and sol[1] <= 1:
+            hit_record.t = sol[2]
+            hit_record.colour = self.colour
+            hit_record.normal = np.cross(self.vec1, self.vec2)
+            hit_record.normal = hit_record.normal / np.linalg.norm(hit_record.normal)
+            return True
+        else:
+            return False
+
+
+class Cube(Hittable):
+    def __init__(self, origin, side_length) -> None:
         super().__init__()
 
 
