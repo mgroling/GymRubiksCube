@@ -1,4 +1,32 @@
 import numpy as np
+import abc
+
+
+class Ray:
+    def __init__(self, origin: np.array, direction: np.array) -> None:
+        self.origin = origin
+        self.direction = direction
+
+    def __call__(self, t: float) -> np.array:
+        return self.origin + t * self.direction
+
+
+class HitRecord:
+    def __init__(self) -> None:
+        self.t = None
+        self.colour = None
+        self.normal = None
+
+
+class Hittable(abc.ABC):
+    @abc.abstractmethod
+    def hit(self, ray: Ray, hit_record: HitRecord) -> bool:
+        pass
+
+
+class Rectangle(Hittable):
+    def __init__(self) -> None:
+        super().__init__()
 
 
 class Face:
