@@ -23,9 +23,8 @@ if __name__ == "__main__":
                 objects_to_render.append(
                     objects3D.Cube(np.array([x, y, z]), 90, colours)
                 )
-    # cube1 = objects3D.Cube(np.array([100, 100, 0]), 80, colours)
-    # cube2 = objects3D.Cube(np.array([100, -100, 0]), 80, colours)
-    # objects_to_render = [cube1, cube2]
+    cube1 = objects3D.Cube(np.array([0, 0, 0]), 400, colours)
+    objects_to_render = [cube1]
     pygame.display.set_caption("Rubicks Cube")
     sphere = Sphere(800)
     look_point = np.array([0, 0, 0])
@@ -67,7 +66,7 @@ if __name__ == "__main__":
         p.render(pov, look_point, objects_to_render)
         if time_passed != None:
             text_surface = myFont.render(
-                "FPS {}".format(int(1 / time_passed)), False, (255, 255, 255)
+                "FPS {}".format(min(int(1 / time_passed), 60)), False, (255, 255, 255)
             )
             p.dis.blit(text_surface, (10, 10))
             pygame.display.update()
