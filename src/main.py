@@ -6,8 +6,8 @@ from render import ProjectionRenderer, RaycastRenderer
 from functions import *
 
 if __name__ == "__main__":
-    WIDTH, HEIGHT = 800, 800
-    p = ProjectionRenderer(100, WIDTH, HEIGHT, (50, 50, 50))
+    WIDTH, HEIGHT = 100, 100
+    p = RaycastRenderer(100, WIDTH, HEIGHT, np.array([50, 50, 50]))
     colors = [
         (255, 213, 0),
         (0, 155, 72),
@@ -20,9 +20,9 @@ if __name__ == "__main__":
     for x in [100, 0, -100]:
         for y in [100, 0, -100]:
             for z in [100, 0, -100]:
-                objects_to_render.append(o3.CubePrj(o3.Vector3D([x, y, z]), 90, colors))
+                objects_to_render.append(o3.Cube(o3.Vector3D([x, y, z]), 90, colors))
 
-    # objects_to_render = [o3.CubePrj(o3.Vector3D([0, 0, 0]), 40, colors)]
+    objects_to_render = [o3.Cube(o3.Vector3D([0, 0, 0]), 100, colors)]
 
     pygame.display.set_caption("Rubicks Cube")
     sphere = Sphere(800)
@@ -62,6 +62,7 @@ if __name__ == "__main__":
 
         pov = sphere.rotate(delta_theta, delta_phi)
 
+        # p.render(np.array([400, 400, 400]), look_point, objects_to_render)
         p.render(pov, look_point, objects_to_render)
         if time_passed != None:
             text_surface = myFont.render(
@@ -72,6 +73,7 @@ if __name__ == "__main__":
         pygame.display.update()
 
         time_passed = time.time() - cur_time
+        print(time_passed)
         wait = 1 / 60 - time_passed
         # 60 fps
         if wait > 0:

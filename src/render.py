@@ -1,7 +1,10 @@
+from numba.np.ufunc import parallel
 import numpy as np
 import pygame
+from numba import njit, jit, prange
 from functions import *
 import objects3D as o3
+import time
 
 
 class ProjectionRenderer:
@@ -135,6 +138,78 @@ class ProjectionRenderer:
             #     )
 
 
+# speedup of ~7 times compared to the other function in raycastrendering but still too slow
+def getColorMap(
+    width,
+    height,
+    bg_color,
+    pov,
+    canvas_origin,
+    canvas_vec1,
+    canvas_vec2,
+    objects_origin,
+    objects_vec1,
+    objects_vec2,
+    objects_color,
+):
+    # initialize color map and set the color for each pixel to the background color
+    rgb_map = np.empty((width, height, 3), dtype=np.int16)
+    t = np.arange(height) - height / 2
+    canvas_vec2 = np.repeat(canvas_vec2[np.newaxis, :], height, axis=0)
+    objects_vec1_repeated = np.repeat(
+        objects_vec1[np.newaxis, :, :, np.newaxis], height, axis=0
+    )
+    objects_vec2_repeated = np.repeat(
+        objects_vec2[np.newaxis, :, :, np.newaxis], height, axis=0
+    )
+    vector_b_repeated = np.repeat(
+        (pov - objects_origin)[np.newaxis, :, :, np.newaxis], height, axis=0
+    )
+
+    # append background color to object colors at the end for later
+    objects_color = np.append(objects_color, bg_color[np.newaxis, :], axis=0)
+
+    for i in range(width):
+        # create rays
+        # create ray direction (point on canvas - pov)
+        ray_direction = (
+            canvas_origin
+            + canvas_vec1 * (i - width / 2)
+            + canvas_vec2 * t[:, np.newaxis]
+            - pov
+        )
+        # now get intersection of ray with objects (rectangles)
+        # create matrix that needs to be inverted with shape (height, N, 3, 3), with N = number of squares in world
+        ray_direction_repeated = np.repeat(
+            ray_direction[:, np.newaxis, :, np.newaxis], len(objects_origin), axis=1
+        )
+        matrices_a = np.append(
+            objects_vec1_repeated,
+            np.append(objects_vec2_repeated, -ray_direction_repeated, axis=3),
+            axis=3,
+        )
+
+        inverse = np.linalg.pinv(matrices_a)
+        gamma_phi_t = np.matmul(inverse, vector_b_repeated)
+
+        outside_of_rect = (
+            (gamma_phi_t[:, :, 0, 0] < 0)
+            | (gamma_phi_t[:, :, 0, 0] > 1)
+            | (gamma_phi_t[:, :, 1, 0] < 0)
+            | (gamma_phi_t[:, :, 1, 0] > 1)
+            | (gamma_phi_t[:, :, 2, 0] <= 0)
+        )
+        valid_t = np.where(outside_of_rect, np.inf, gamma_phi_t[:, :, 2, 0])
+        obj_seen = np.argmin(valid_t, axis=1)
+        all_inf = (valid_t == np.inf).all(axis=1)
+        color = np.where(all_inf, -1, obj_seen)
+
+        rgb_map[i] = objects_color[color]
+
+    return rgb_map
+
+
+# TERRIBLY SLOW, DON'T USE
 class RaycastRenderer:
     def __init__(
         self, canvas_distance: float, width: int, height: int, bgColor
@@ -170,7 +245,35 @@ class RaycastRenderer:
         v, w = v / np.linalg.norm(v), w / np.linalg.norm(w)
         canvas = Plane(-u / 2, v, w)
 
-        # https://stackoverflow.com/questions/26357200/how-to-display-a-color-map-as-pygame-surface-generated-from-an-array-in-real-tim
+        # temp
+        origins_obj = np.empty((len(objects) * 6, 3))
+        vec1_obj = np.empty((len(objects) * 6, 3))
+        vec2_obj = np.empty((len(objects) * 6, 3))
+        colors_obj = np.empty((len(objects) * 6, 3))
+
+        i = 0
+        for obj in objects:
+            for rect in obj.rectangles:
+                origins_obj[i] = rect.origin
+                vec1_obj[i] = rect.vec1
+                vec2_obj[i] = rect.vec2
+                colors_obj[i] = rect.color
+                i += 1
+
+        return getColorMap(
+            self.width,
+            self.height,
+            self.bgColor,
+            pov,
+            -u / 2,
+            v,
+            w,
+            origins_obj,
+            vec1_obj,
+            vec2_obj,
+            colors_obj,
+        )
+
         return self._getColorMapHelper(pov, canvas, objects)
 
     def _getColorMapHelper(self, pov: o3.Vector3D, canvas: Plane, objects):
@@ -202,3 +305,59 @@ class RaycastRenderer:
     def render(self, pov: o3.Vector3D, look_point: o3.Vector3D, objects: list):
         rgbmap = self._getColorMap(pov, look_point, objects)
         pygame.surfarray.blit_array(self.dis, rgbmap)
+
+
+if __name__ == "__main__":
+    pov = np.array([300, 300, 0], dtype=np.float32)
+    look_point = np.array([0, 0, 0])
+
+    u = look_point - pov
+    v = np.array([u[1], -u[0], 0])
+    w = np.cross(u, v)
+
+    v, w = v / np.linalg.norm(v), w / np.linalg.norm(w)
+
+    objs = [
+        o3.Cube(
+            look_point,
+            100,
+            [
+                (255, 213, 0),
+                (0, 155, 72),
+                (200, 100, 0),
+                (185, 0, 0),
+                (0, 69, 173),
+                (255, 255, 255),
+            ],
+        )
+    ]
+
+    origins_obj = np.empty((len(objs) * 6, 3))
+    vec1_obj = np.empty((len(objs) * 6, 3))
+    vec2_obj = np.empty((len(objs) * 6, 3))
+    colors_obj = np.empty((len(objs) * 6, 3))
+
+    i = 0
+    for obj in objs:
+        for rect in obj.rectangles:
+            origins_obj[i] = rect.origin
+            vec1_obj[i] = rect.vec1
+            vec2_obj[i] = rect.vec2
+            colors_obj[i] = rect.color
+            i += 1
+
+    current_time = time.time()
+    getColorMap(
+        100,
+        100,
+        np.array([50, 50, 50]),
+        pov,
+        -u / 2,
+        v,
+        w,
+        origins_obj,
+        vec1_obj,
+        vec2_obj,
+        colors_obj,
+    )
+    print(time.time() - current_time)
