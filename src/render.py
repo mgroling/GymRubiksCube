@@ -1,7 +1,5 @@
-from numba.np.ufunc import parallel
 import numpy as np
 import pygame
-from numba import njit, jit, prange
 from functions import *
 import objects3D as o3
 import time
