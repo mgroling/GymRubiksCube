@@ -1,8 +1,131 @@
 import numpy as np
+from numpy.lib.twodim_base import tri
 import pygame
 from functions import *
 import objects3D as o3
 import time
+from typing import List
+
+
+class Scene:
+    def __init__(
+        self,
+        screen_width: int,
+        screen_height: int,
+        objects_to_render: List[o3.Renderable],
+        canvas_distance,
+        bg_color,
+    ) -> None:
+        # save general paramters
+        self.width = screen_width
+        self.height = screen_height
+        self.canvas_distance = canvas_distance
+        self.bg_color = bg_color
+
+        # save render parameters
+        self.switch = True
+        self.last_quadrant = None
+
+        # set up internal structures for objects to render
+        # for every object we save which triangles and rectangles belong to it, in order to later modify objects easily
+        # first list are the indices of triangles and second list are the indices of rectangles
+        self.objects = {elem.name: [[], []] for elem in objects_to_render}
+
+        self.triangle_origins = []
+        self.triangle_vec1s = []
+        self.triangle_vec2s = []
+        self.triangle_outlines = []
+        self.triangle_outline_colors = []
+        self.triangle_fill_colors = []
+
+        self.rectangle_origins = []
+        self.rectangle_vec1s = []
+        self.rectangle_vec2s = []
+        self.rectangle_outlines = []
+        self.rectangle_outline_colors = []
+        self.rectangle_fill_colors = []
+
+        index_tri, index_rec = 0, 0
+        for object in objects_to_render:
+            for triangle in object.triangles:
+                self.objects[object.name][0].append(index_tri)
+                self.triangle_origins.append(triangle.origin)
+                self.triangle_vec1s.append(triangle.vec1)
+                self.triangle_vec2s.append(triangle.vec2)
+                self.triangle_outlines.append(triangle.outline)
+                self.triangle_outline_colors.append(triangle.outline_color)
+                self.triangle_fill_colors.append(triangle.fill_color)
+                index_tri += 1
+
+            for rectangle in object.rectangles:
+                self.objects[object.name][1].append(index_rec)
+                self.rectangle_origins.append(rectangle.origin)
+                self.rectangle_vec1s.append(rectangle.vec1)
+                self.rectangle_vec2s.append(rectangle.vec2)
+                self.rectangle_outlines.append(rectangle.outline)
+                self.rectangle_outline_colors.append(rectangle.outline_color)
+                self.rectangle_fill_colors.append(rectangle.fill_color)
+                index_rec += 1
+
+        self.triangle_origins = np.array(self.triangle_origins)
+        self.triangle_vec1s = np.array(self.triangle_vec1s)
+        self.triangle_vec2s = np.array(self.triangle_vec2s)
+
+        self.rectangle_origins = np.array(self.rectangle_origins)
+        self.rectangle_vec1s = np.array(self.rectangle_vec1s)
+        self.rectangle_vec2s = np.array(self.rectangle_vec2s)
+
+    def _getCanvasVecs(self, pov: np.ndarray, look_point: np.ndarray):
+        # create a plane that is perpendicular to the view vector and use it as canvas
+        u = look_point - pov
+        cur_quadrant = getQuadrant(u[0], u[1])
+        if cur_quadrant != -1:
+            if (
+                self.last_quadrant != None
+                and max(cur_quadrant, self.last_quadrant)
+                - min(cur_quadrant, self.last_quadrant)
+                == 2
+            ):
+                self.switch = not self.switch
+            self.last_quadrant = cur_quadrant
+
+        if self.switch:
+            v = np.array([u[1], -u[0], 0])
+        else:
+            v = np.array([-u[1], u[0], 0])
+        w = np.cross(u, v)
+
+        v, w = v / np.linalg.norm(v), w / np.linalg.norm(w)
+
+        origin = pov + self.canvas_distance * (u / np.linalg.norm(u))
+        # move origin to bottom left of canvas
+        origin = origin - v * self.width / 2 - w * self.height / 2
+
+        return origin, v, w
+
+    def _renderRaycast(
+        self,
+        canvas_origin: np.ndarray,
+        canvas_vecX: np.ndarray,
+        canvas_vecY: np.ndarray,
+    ):
+        pass
+
+    def _renderProjection(
+        self,
+        canvas_origin: np.ndarray,
+        canvas_vecX: np.ndarray,
+        canvas_vecY: np.ndarray,
+    ):
+        coords_vertices_triangles = np.empty((len(self.triangle_origins), 3, 2))
+        coords_vertices_rectangles = np.empty((len(self.rectangle_origins), 4, 2))
+
+    def render(self, pov: np.ndarray, look_point: np.ndarray, algorithm="projection"):
+        o, v1, v2 = self._getCanvasVecs(pov, look_point)
+        if algorithm == "projection":
+            self._renderProjection(o, v1, v2)
+        else:
+            self._renderRaycast(o, v1, v2)
 
 
 class ProjectionRenderer:
