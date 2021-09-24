@@ -1,7 +1,6 @@
 from numba.np.ufunc import parallel
 import numpy as np
 import pygame
-from numba import njit, jit, prange
 from functions import *
 import objects3D as o3
 import time
@@ -276,6 +275,7 @@ class RaycastRenderer:
 
         return self._getColorMapHelper(pov, canvas, objects)
 
+    # rather use other function (its much faster)
     def _getColorMapHelper(self, pov: o3.Vector3D, canvas: Plane, objects):
         rgb_map = np.zeros((self.width, self.height, 3))
         for i in range(self.width):
@@ -348,8 +348,8 @@ if __name__ == "__main__":
 
     current_time = time.time()
     getColorMap(
-        100,
-        100,
+        400,
+        400,
         np.array([50, 50, 50]),
         pov,
         -u / 2,

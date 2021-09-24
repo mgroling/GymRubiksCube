@@ -39,6 +39,9 @@ class Rectangle3D(Hittable):
         self.origin = origin
         self.vec1 = vec1
         self.vec2 = vec2
+        self.normal = np.cross(self.vec1, self.vec2) / np.linalg.norm(
+            np.cross(self.vec1, self.vec2)
+        )
         self.color = color
 
     def hit(self, ray: Ray, hit_record: HitRecord) -> bool:
@@ -51,8 +54,7 @@ class Rectangle3D(Hittable):
         if sol[0] >= 0 and sol[0] <= 1 and sol[1] >= 0 and sol[1] <= 1 and sol[2] > 0:
             hit_record.t = sol[2]
             hit_record.color = self.color
-            hit_record.normal = np.cross(self.vec1, self.vec2)
-            hit_record.normal = hit_record.normal / np.linalg.norm(hit_record.normal)
+            hit_record.normal = self.normal
             return True
         else:
             return False
@@ -152,7 +154,6 @@ class Cube(Hittable):
 
 class Face:
     def __init__(self, vertices, color) -> None:
-        # append the first vertex at the end again, such that we can create lines between them easily
         self.vertices = vertices
         self.color = color
         self._coordsInfo = [None for i in range(len(self.vertices))]

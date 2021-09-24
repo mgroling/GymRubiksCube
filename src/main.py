@@ -6,7 +6,7 @@ from render import ProjectionRenderer, RaycastRenderer
 from functions import *
 
 if __name__ == "__main__":
-    WIDTH, HEIGHT = 100, 100
+    WIDTH, HEIGHT = 400, 400
     p = RaycastRenderer(100, WIDTH, HEIGHT, np.array([50, 50, 50]))
     colors = [
         (255, 213, 0),
