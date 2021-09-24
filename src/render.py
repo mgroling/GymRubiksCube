@@ -3,8 +3,8 @@ from numpy.lib.twodim_base import tri
 import pygame
 from functions import *
 import objects3D as o3
-import time
-from typing import List
+import timeit
+from typing import List, Tuple
 
 
 class Scene:
@@ -29,7 +29,7 @@ class Scene:
         # set up internal structures for objects to render
         # for every object we save which triangles and rectangles belong to it, in order to later modify objects easily
         # first list are the indices of triangles and second list are the indices of rectangles
-        self.objects = {elem.name: [[], []] for elem in objects_to_render}
+        self.objects = {elem.get_name(): [[], []] for elem in objects_to_render}
 
         self.triangle_origins = []
         self.triangle_vec1s = []
@@ -47,8 +47,8 @@ class Scene:
 
         index_tri, index_rec = 0, 0
         for object in objects_to_render:
-            for triangle in object.triangles:
-                self.objects[object.name][0].append(index_tri)
+            for triangle in object.get_triangles():
+                self.objects[object.get_name()][0].append(index_tri)
                 self.triangle_origins.append(triangle.origin)
                 self.triangle_vec1s.append(triangle.vec1)
                 self.triangle_vec2s.append(triangle.vec2)
@@ -57,8 +57,8 @@ class Scene:
                 self.triangle_fill_colors.append(triangle.fill_color)
                 index_tri += 1
 
-            for rectangle in object.rectangles:
-                self.objects[object.name][1].append(index_rec)
+            for rectangle in object.get_rectangles():
+                self.objects[object.get_name()][1].append(index_rec)
                 self.rectangle_origins.append(rectangle.origin)
                 self.rectangle_vec1s.append(rectangle.vec1)
                 self.rectangle_vec2s.append(rectangle.vec2)
@@ -75,7 +75,9 @@ class Scene:
         self.rectangle_vec1s = np.array(self.rectangle_vec1s)
         self.rectangle_vec2s = np.array(self.rectangle_vec2s)
 
-    def _getCanvasVecs(self, pov: np.ndarray, look_point: np.ndarray):
+    def _getCanvasVecs(
+        self, pov: np.ndarray, look_point: np.ndarray
+    ) -> Tuple[np.ndarray]:
         # create a plane that is perpendicular to the view vector and use it as canvas
         u = look_point - pov
         cur_quadrant = getQuadrant(u[0], u[1])
@@ -111,21 +113,108 @@ class Scene:
     ):
         pass
 
-    def _renderProjection(
+    def _get2DCoordinates(
         self,
+        pov: np.ndarray,
         canvas_origin: np.ndarray,
         canvas_vecX: np.ndarray,
         canvas_vecY: np.ndarray,
     ):
-        coords_vertices_triangles = np.empty((len(self.triangle_origins), 3, 2))
-        coords_vertices_rectangles = np.empty((len(self.rectangle_origins), 4, 2))
+        # create vertices for each rectangle/triangle in 3D
+        tri_options = [(1, 0), (0, 1)]
+        tri_vertices = np.empty((len(self.triangle_origins), 3, 3))
+        tri_vertices[:, 0] = self.triangle_origins
+        for i, option in enumerate(tri_options):
+            tri_vertices[:, i + 1] = (
+                self.triangle_origins
+                + option[0] * self.triangle_vec1s
+                + option[1] * self.triangle_vec2s
+            )
+
+        rect_options = [(1, 0), (0, 1), (1, 1)]
+        rect_vertices = np.empty((len(self.rectangle_origins), 4, 3))
+        rect_vertices[:, 0] = self.rectangle_origins
+        for i, option in enumerate(rect_options):
+            rect_vertices[:, i + 1] = (
+                self.rectangle_origins
+                + option[0] * self.rectangle_vec1s
+                + option[1] * self.rectangle_vec2s
+            )
+
+        # now map these to 2D
+        # first for all rectangles
+        # create vector going from each vertex to the pov
+        rays_to_pov_rect = (pov[np.newaxis, np.newaxis] - rect_vertices)[
+            :, :, :, np.newaxis
+        ]
+
+        # now get the barycentric coordinates of each vertex on the plane
+        # add dimension for each vector to get it in matrix form
+        canvas_vecX_repeated = np.repeat(canvas_vecX[np.newaxis], 4, axis=0)
+        canvas_vecX_repeated_rect = np.repeat(
+            canvas_vecX_repeated[np.newaxis], len(rect_vertices), axis=0
+        )[:, :, :, np.newaxis]
+        canvas_vecY_repeated = np.repeat(canvas_vecY[np.newaxis], 4, axis=0)
+        canvas_vecY_repeated_rect = np.repeat(
+            canvas_vecY_repeated[np.newaxis], len(rect_vertices), axis=0
+        )[:, :, :, np.newaxis]
+
+        # solve linear equation to get the 2D coordinates:
+        # vertex + t * (pov - vertex) = canvas_origin + x * canvas_VecX + y * canvas_VecY
+        matrix_rect = np.concatenate(
+            [canvas_vecX_repeated_rect, canvas_vecY_repeated_rect, -rays_to_pov_rect],
+            axis=3,
+        )
+        vector_rect = (rect_vertices - canvas_origin[np.newaxis, np.newaxis])[
+            :, :, :, np.newaxis
+        ]
+        x_y_t_rect = np.matmul(np.linalg.inv(matrix_rect), vector_rect)
+
+        # now for all triangles
+        rays_to_pov_tri = (pov[np.newaxis, np.newaxis] - tri_vertices)[
+            :, :, :, np.newaxis
+        ]
+        canvas_vecX_repeated_tri = np.repeat(
+            canvas_vecX_repeated[np.newaxis, :3], len(tri_vertices), axis=0
+        )[:, :, :, np.newaxis]
+        canvas_vecY_repeated_tri = np.repeat(
+            canvas_vecY_repeated[np.newaxis, :3], len(tri_vertices), axis=0
+        )[:, :, :, np.newaxis]
+
+        matrix_tri = np.concatenate(
+            [canvas_vecX_repeated_tri, canvas_vecY_repeated_tri, -rays_to_pov_tri],
+            axis=3,
+        )
+        vector_tri = (tri_vertices - canvas_origin[np.newaxis, np.newaxis])[
+            :, :, :, np.newaxis
+        ]
+        x_y_t_tri = np.matmul(np.linalg.inv(matrix_tri), vector_tri)
+
+        return x_y_t_rect, x_y_t_tri
+
+    def _renderProjection(
+        self,
+        pov: np.ndarray,
+        canvas_origin: np.ndarray,
+        canvas_vecX: np.ndarray,
+        canvas_vecY: np.ndarray,
+    ):
+        rect_x_y_t, tri_x_y_t = self._get2DCoordinates(
+            pov, canvas_origin, canvas_vecX, canvas_vecY
+        )
+
+        # you can use t as distance (just have to normalize the rays)
+        # next: ignore vertices that are behind the screen
+        # determine order in which to render them
 
     def render(self, pov: np.ndarray, look_point: np.ndarray, algorithm="projection"):
         o, v1, v2 = self._getCanvasVecs(pov, look_point)
         if algorithm == "projection":
-            self._renderProjection(o, v1, v2)
-        else:
+            self._renderProjection(pov, o, v1, v2)
+        elif algorithm == "raycast":
             self._renderRaycast(o, v1, v2)
+        else:
+            print("Invalid algorithm, options are: " "projection" ", " "raycast" "")
 
 
 class ProjectionRenderer:
@@ -430,56 +519,20 @@ class RaycastRenderer:
 
 
 if __name__ == "__main__":
-    pov = np.array([300, 300, 0], dtype=np.float32)
+    pov = np.array([0.1, 0.1, 500], dtype=np.float32)
     look_point = np.array([0, 0, 0])
 
-    u = look_point - pov
-    v = np.array([u[1], -u[0], 0])
-    w = np.cross(u, v)
-
-    v, w = v / np.linalg.norm(v), w / np.linalg.norm(w)
-
-    objs = [
-        o3.Cube(
-            look_point,
-            100,
-            [
-                (255, 213, 0),
-                (0, 155, 72),
-                (200, 100, 0),
-                (185, 0, 0),
-                (0, 69, 173),
-                (255, 255, 255),
-            ],
-        )
-    ]
-
-    origins_obj = np.empty((len(objs) * 6, 3))
-    vec1_obj = np.empty((len(objs) * 6, 3))
-    vec2_obj = np.empty((len(objs) * 6, 3))
-    colors_obj = np.empty((len(objs) * 6, 3))
-
-    i = 0
-    for obj in objs:
-        for rect in obj.rectangles:
-            origins_obj[i] = rect.origin
-            vec1_obj[i] = rect.vec1
-            vec2_obj[i] = rect.vec2
-            colors_obj[i] = rect.color
-            i += 1
-
-    current_time = time.time()
-    getColorMap(
-        400,
-        400,
-        np.array([50, 50, 50]),
-        pov,
-        -u / 2,
-        v,
-        w,
-        origins_obj,
-        vec1_obj,
-        vec2_obj,
-        colors_obj,
+    a, b, c = (
+        np.array([-50, -50, -50]),
+        np.array([-50, 50, -50]),
+        np.array([50, -50, -50]),
     )
-    print(time.time() - current_time)
+    top = np.array([0, 0, 50])
+
+    ground = o3.Rectangle3D(a, b - a, c - a, 0, (0, 0, 0), (0, 0, 0))
+    pyr = o3.Pyramid("TestPyramid", ground, top, (0, 0, 0))
+    objects_to_render = [pyr]
+
+    sce = Scene(400, 400, objects_to_render, 100, (50, 50, 50))
+    t = timeit.Timer(lambda: sce.render(pov, look_point))
+    print(t.timeit(1))

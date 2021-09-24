@@ -41,18 +41,15 @@ class Triangle3D:
 
 class Renderable(abc.ABC):
     @abc.abstractmethod
-    @property
-    def name(self) -> str:
+    def get_name(self) -> str:
         pass
 
     @abc.abstractmethod
-    @property
-    def triangles(self) -> List[Triangle3D]:
+    def get_triangles(self) -> List[Triangle3D]:
         pass
 
     @abc.abstractmethod
-    @property
-    def rectangles(self) -> List[Rectangle3D]:
+    def get_rectangles(self) -> List[Rectangle3D]:
         pass
 
 
@@ -68,7 +65,7 @@ class Pyramid(Renderable):
                 )
 
         # [0, 0], [0, 1], [1, 0], [1, 1]
-        triangle_groups = [(0, 1), (0, 2), (1, 3), (2, 3)]
+        triangle_groups = [(0, 1), (0, 2), (3, 1), (3, 2)]
         self.triangles = []
         for group in triangle_groups:
             origin, vec1, vec2 = (
@@ -78,12 +75,24 @@ class Pyramid(Renderable):
             )
             self.triangles.append(Triangle3D(origin, vec1, vec2, 0, color, color))
 
+    def get_name(self) -> str:
+        return self.name
 
-# class Vector3D(np.ndarray):
-#     def __new__(cls, input_array):
-#         assert len(input_array) == 3
-#         obj = np.asarray(input_array).view(cls)
-#         return obj
+    def get_triangles(self) -> List[Triangle3D]:
+        return self.triangles
+
+    def get_rectangles(self) -> List[Rectangle3D]:
+        return self.rectangles
+
+
+"""""" """""" """""" """""" """""" """"""
+
+
+class Vector3D(np.ndarray):
+    def __new__(cls, input_array):
+        assert len(input_array) == 3
+        obj = np.asarray(input_array).view(cls)
+        return obj
 
 
 # class Ray:
