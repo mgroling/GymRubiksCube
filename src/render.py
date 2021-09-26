@@ -1,9 +1,6 @@
 import numpy as np
-from numpy.lib import tri
-import pygame
 from functions import *
 import objects3D as o3
-import time
 from typing import List, Tuple
 
 
@@ -138,7 +135,7 @@ class Scene:
 
         return tri_x_y_t[:, :, :, 0]
 
-    # TODO: parallelization of this should be easy so DO IT!!!
+    # TODO: parallelization of this should be easy, so DO IT!!!
     # assume v1.y > v2.y = v3.y
     def __rasterizeBottomFlatTriangle(self, v1, v2, v3):
         object_map = np.ones((self.width, self.height)) * np.inf
@@ -149,27 +146,69 @@ class Scene:
         delta_t_x = delta_t_x[2] / delta_t_x[0]
         delta_t_y = v2 - v1
         delta_t_y[2] = delta_t_y[2] - delta_t_y[0] * delta_t_x
-        delta_t_y = delta_t_y[2] / delta_t_y[1]
+        delta_t_y = -delta_t_y[2] / delta_t_y[1]
 
         curX1 = v1[0]
         curX2 = v1[0]
 
-        for i in range(int(v1[1]), int(v2[1] + 1), -1):
-            object_map[int(min(curX1, curX2)) : int(max(curX1, curX2)) + 1, i] = (
+        for i in range(int(v1[1]), int(v2[1]) - 1, -1):
+            curX1_int, curX2_int = int(curX1), int(curX2)
+            object_map[
+                max(min(curX1_int, curX2_int), 0) : min(
+                    max(curX1_int, curX2_int) + 1, self.height - 1
+                ),
+                i,
+            ] = (
                 v1[2]
-                + np.arange(int(min(curX1, curX2)), int(max(curX1, curX2)) + 1)
+                + np.arange(
+                    max(min(curX1_int, curX2_int), 0) - int(v1[0]),
+                    min(max(curX1_int, curX2_int), self.height - 2) - int(v1[0]) + 1,
+                )
                 * delta_t_x
                 + (int(v1[1]) - i) * delta_t_y
             )
+
             curX1 += slope1
             curX2 += slope2
 
         return object_map
 
-    # TODO: implement
     # assume v1.y = v2.y > v3.y
     def __rasterizeTopFlatTriangle(self, v1, v2, v3):
-        return
+        object_map = np.ones((self.width, self.height)) * np.inf
+        slope1 = (v3[0] - v1[0]) / (v3[1] - v1[1])
+        slope2 = (v3[0] - v2[0]) / (v3[1] - v2[1])
+
+        delta_t_x = max(v1, v2, key=lambda x: x[0]) - min(v1, v2, key=lambda x: x[0])
+        delta_t_x = delta_t_x[2] / delta_t_x[0]
+        delta_t_y = v3 - v2
+        delta_t_y[2] = delta_t_y[2] - delta_t_y[0] * delta_t_x
+        delta_t_y = -delta_t_y[2] / delta_t_y[1]
+
+        curX1 = v3[0]
+        curX2 = v3[0]
+
+        for i in range(int(v3[1]), int(v1[1]) + 1):
+            curX1_int, curX2_int = int(curX1), int(curX2)
+            object_map[
+                max(min(curX1_int, curX2_int), 0) : min(
+                    max(curX1_int, curX2_int) + 1, self.height - 1
+                ),
+                i,
+            ] = (
+                v3[2]
+                + np.arange(
+                    max(min(curX1_int, curX2_int), 0) - int(v3[0]),
+                    min(max(curX1_int, curX2_int), self.height - 2) - int(v3[0]) + 1,
+                )
+                * delta_t_x
+                + (int(v3[1]) - i) * delta_t_y
+            )
+
+            curX1 += slope1
+            curX2 += slope2
+
+        return object_map
 
     def __rasterizeTriangle(self, triangle_x_y_t):
         triangle_x_y_t = sorted(triangle_x_y_t, key=lambda x: x[1])
@@ -177,10 +216,10 @@ class Scene:
         v1, v2, v3 = triangle_x_y_t[0], triangle_x_y_t[1], triangle_x_y_t[2]
         # check for trivial case of bottom-flat triangle
         if v1[1] == v2[1]:
-            self.__rasterizeBottomFlatTriangle(v1, v2, v3)
+            return self.__rasterizeBottomFlatTriangle(v1, v2, v3)
         # check for trivial case of top-flat triangle
         elif v2[1] == v3[1]:
-            self.__rasterizeTopFlatTriangle(v2, v3, v1)
+            return self.__rasterizeTopFlatTriangle(v2, v3, v1)
         # need to create artifical vertex to get a bottom-flat and top-flat triangle
         else:
             v4 = np.array(
@@ -197,13 +236,30 @@ class Scene:
                     v1[2] + x_y[0] * (v2[2] - v1[2]) + x_y[1] * (v3[2] - v1[2]),
                 ]
             )
-            self.__rasterizeTopFlatTriangle(v2, v4, v1)
-            self.__rasterizeBottomFlatTriangle(v3, v2, v4)
+            temp = np.minimum(
+                self.__rasterizeTopFlatTriangle(v2, v4, v1),
+                self.__rasterizeBottomFlatTriangle(v3, v2, v4),
+            )
+            return temp
 
     def _rasterizeTriangles(self, tri_x_y_t: np.ndarray) -> np.ndarray:
-        object_distance_map = np.empty((self.width, self.height, 2))
-        for tri in tri_x_y_t[:1]:
-            return self.__rasterizeTriangle(tri)
+        object_map = np.empty((len(tri_x_y_t), self.width, self.height))
+        for i, tri in enumerate(tri_x_y_t):
+            object_map[i] = self.__rasterizeTriangle(tri)
+            # make sure only vertices infront of the canvas are visible
+            object_map[i] = np.where(object_map[i] < 0, np.inf, object_map[i])
+
+        # get maximum element and add it in the end, in order to see if all values are infinity for an x, y
+        max = np.where(np.isinf(object_map), -np.Inf, object_map).max()
+        max_plus1 = np.ones((self.width, self.height)) * max + 1
+        object_map = np.append(object_map, max_plus1[np.newaxis], axis=0)
+        colors = np.array(self.triangle_fill_colors + [self.bg_color])
+
+        # now for each pixel get the object id of the object that is closest
+        pixel_id = np.argmin(object_map, axis=0)
+        color_map = colors[pixel_id]
+
+        return color_map
 
     def _renderProjection(
         self,
@@ -212,47 +268,18 @@ class Scene:
         canvas_vecX: np.ndarray,
         canvas_vecY: np.ndarray,
     ):
-        # if self.dis is None:
-        #     pygame.init()
-        #     pygame.font.init()
-        #     self.dis = pygame.display.set_mode((self.width, self.height))
-
         tri_x_y_t = self._get2DCoordinates(pov, canvas_origin, canvas_vecX, canvas_vecY)
-        rgb_map = self._rasterizeTriangles(tri_x_y_t)
-
-        # pygame.surfarray.blit_array(self.dis, rgb_map)
-        # pygame.display.update()
+        return self._rasterizeTriangles(tri_x_y_t)
 
     def render(
         self, pov: np.ndarray, look_point: np.ndarray, algorithm="projection"
     ) -> None:
         o, v1, v2 = self._getCanvasVecs(pov, look_point)
         if algorithm == "projection":
-            self._renderProjection(pov, o, v1, v2)
+            return self._renderProjection(pov, o, v1, v2)
         elif algorithm == "raycast":
-            self._renderRaycast(o, v1, v2)
+            return self._renderRaycast(o, v1, v2)
         else:
             print(
                 'Invalid algorithm for rendering, options are: "projection" and "raycast"'
             )
-
-
-if __name__ == "__main__":
-    pov = np.array([300, 600, 300])
-    look_point = np.array([0, 0, 0])
-
-    a, b, c = (
-        np.array([-100, -100, -100]),
-        np.array([-100, 100, -100]),
-        np.array([100, -100, -100]),
-    )
-    top = np.array([0, 0, 100])
-
-    pyr = o3.Pyramid(a, b - a, c - a, top, (0, 0, 0))
-    objects_to_render = [pyr]
-
-    sce = Scene(400, 400, objects_to_render, 500, (50, 50, 50))
-    cur_time = time.time()
-    sce.render(pov, look_point)
-    print(time.time() - cur_time)
-    # time.sleep(5)
