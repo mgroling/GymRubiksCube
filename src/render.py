@@ -1,7 +1,93 @@
+from numba.np.ufunc import parallel
 import numpy as np
 from functions import *
 import objects3D as o3
 from typing import List, Tuple
+from numba import njit, prange
+
+
+# assume v1.y > v2.y = v3.y
+@njit
+def rasterizeBottomFlatTriangle(v1, v2, v3, width, height):
+    object_map = np.ones((width, height), dtype=np.float64) * np.inf
+    slope1 = -(v2[0] - v1[0]) / (v2[1] - v1[1])
+    slope2 = -(v3[0] - v1[0]) / (v3[1] - v1[1])
+
+    if v2[0] > v3[0]:
+        delta_t_x = v2 - v3
+    else:
+        delta_t_x = v3 - v2
+    delta_t_x = delta_t_x[2] / delta_t_x[0]
+    delta_t_y = v2 - v1
+    delta_t_y[2] = delta_t_y[2] - delta_t_y[0] * delta_t_x
+    delta_t_y = -delta_t_y[2] / delta_t_y[1]
+
+    curX1 = v1[0]
+    curX2 = v1[0]
+
+    for i in range(int(v1[1]), int(v2[1]) - 1, -1):
+        curX1_int, curX2_int = int(curX1), int(curX2)
+        object_map[
+            max(min(curX1_int, curX2_int), 0) : min(
+                max(curX1_int, curX2_int) + 1, height - 1
+            ),
+            i,
+        ] = (
+            v1[2]
+            + np.arange(
+                max(min(curX1_int, curX2_int), 0) - int(v1[0]),
+                min(max(curX1_int, curX2_int), height - 2) - int(v1[0]) + 1,
+            )
+            * delta_t_x
+            + (int(v1[1]) - i) * delta_t_y
+        )
+
+        curX1 += slope1
+        curX2 += slope2
+
+    return object_map
+
+
+# assume v1.y = v2.y < v3.y
+@njit
+def rasterizeTopFlatTriangle(v1, v2, v3, width, height):
+    object_map = np.ones((width, height), dtype=np.float64) * np.inf
+    slope1 = (v3[0] - v1[0]) / (v3[1] - v1[1])
+    slope2 = (v3[0] - v2[0]) / (v3[1] - v2[1])
+
+    if v1[0] > v2[0]:
+        delta_t_x = v1 - v2
+    else:
+        delta_t_x = v2 - v1
+    delta_t_x = delta_t_x[2] / delta_t_x[0]
+    delta_t_y = v3 - v2
+    delta_t_y[2] = delta_t_y[2] - delta_t_y[0] * delta_t_x
+    delta_t_y = -delta_t_y[2] / delta_t_y[1]
+
+    curX1 = v3[0]
+    curX2 = v3[0]
+
+    for i in range(int(v3[1]), int(v1[1]) + 1):
+        curX1_int, curX2_int = int(curX1), int(curX2)
+        object_map[
+            max(min(curX1_int, curX2_int), 0) : min(
+                max(curX1_int, curX2_int) + 1, height - 1
+            ),
+            i,
+        ] = (
+            v3[2]
+            + np.arange(
+                max(min(curX1_int, curX2_int), 0) - int(v3[0]),
+                min(max(curX1_int, curX2_int), height - 2) - int(v3[0]) + 1,
+            )
+            * delta_t_x
+            + (int(v3[1]) - i) * delta_t_y
+        )
+
+        curX1 += slope1
+        curX2 += slope2
+
+    return object_map
 
 
 class Scene:
@@ -138,7 +224,7 @@ class Scene:
     # TODO: parallelization of this should be easy, so DO IT!!!
     # assume v1.y > v2.y = v3.y
     def __rasterizeBottomFlatTriangle(self, v1, v2, v3):
-        object_map = np.ones((self.width, self.height)) * np.inf
+        object_map = np.ones((self.width, self.height), dtype=np.float64) * np.inf
         slope1 = -(v2[0] - v1[0]) / (v2[1] - v1[1])
         slope2 = -(v3[0] - v1[0]) / (v3[1] - v1[1])
 
@@ -173,7 +259,7 @@ class Scene:
 
         return object_map
 
-    # assume v1.y = v2.y > v3.y
+    # assume v1.y = v2.y < v3.y
     def __rasterizeTopFlatTriangle(self, v1, v2, v3):
         object_map = np.ones((self.width, self.height)) * np.inf
         slope1 = (v3[0] - v1[0]) / (v3[1] - v1[1])
@@ -214,12 +300,14 @@ class Scene:
         triangle_x_y_t = sorted(triangle_x_y_t, key=lambda x: x[1])
 
         v1, v2, v3 = triangle_x_y_t[0], triangle_x_y_t[1], triangle_x_y_t[2]
+        if int(v1[1]) == int(v2[1]) and int(v2[1]) == int(v3[1]):
+            return np.ones((self.width, self.height)) * np.inf
         # check for trivial case of bottom-flat triangle
-        if v1[1] == v2[1]:
-            return self.__rasterizeBottomFlatTriangle(v1, v2, v3)
+        elif v1[1] == v2[1]:
+            return rasterizeBottomFlatTriangle(v3, v1, v2, self.width, self.height)
         # check for trivial case of top-flat triangle
         elif v2[1] == v3[1]:
-            return self.__rasterizeTopFlatTriangle(v2, v3, v1)
+            return rasterizeTopFlatTriangle(v2, v3, v1, self.width, self.height)
         # need to create artifical vertex to get a bottom-flat and top-flat triangle
         else:
             v4 = np.array(
@@ -237,8 +325,8 @@ class Scene:
                 ]
             )
             temp = np.minimum(
-                self.__rasterizeTopFlatTriangle(v2, v4, v1),
-                self.__rasterizeBottomFlatTriangle(v3, v2, v4),
+                rasterizeTopFlatTriangle(v2, v4, v1, self.width, self.height),
+                rasterizeBottomFlatTriangle(v3, v2, v4, self.width, self.height),
             )
             return temp
 
@@ -283,3 +371,10 @@ class Scene:
             print(
                 'Invalid algorithm for rendering, options are: "projection" and "raycast"'
             )
+
+
+if __name__ == "__main__":
+    a = np.array([66, 120, 100])
+    b = np.array([178, 73, 80])
+    c = np.array([120, 73, 120])
+    rasterizeBottomFlatTriangle(a, b, c, 400, 400)

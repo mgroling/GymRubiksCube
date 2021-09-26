@@ -6,7 +6,7 @@ from render import Scene
 from functions import *
 
 if __name__ == "__main__":
-    WIDTH, HEIGHT = 800, 800
+    WIDTH, HEIGHT = 400, 400
     colors = [
         (255, 213, 0),
         (0, 155, 72),
@@ -79,7 +79,9 @@ if __name__ == "__main__":
         pygame.surfarray.blit_array(dis, color_map)
         if time_passed != None:
             text_surface = myFont.render(
-                "FPS {}".format(min(int(1 / time_passed), 60)), False, (255, 255, 255)
+                "FPS {}".format(min(int(1 / time_passed), cap_fps)),
+                False,
+                (255, 255, 255),
             )
             dis.blit(text_surface, (10, 10))
 
@@ -87,5 +89,6 @@ if __name__ == "__main__":
 
         time_passed = time.time() - cur_time
         wait = 1 / cap_fps - time_passed
+        print(time_passed)
         if wait > 0:
             time.sleep(wait)
