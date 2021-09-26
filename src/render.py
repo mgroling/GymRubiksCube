@@ -1,4 +1,3 @@
-from numba.np.ufunc import parallel
 import numpy as np
 from functions import *
 import objects3D as o3
