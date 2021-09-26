@@ -1,9 +1,9 @@
 import numpy as np
-from numpy.lib.twodim_base import tri
+from numpy.lib import tri
 import pygame
 from functions import *
 import objects3D as o3
-import timeit
+import time
 from typing import List, Tuple
 
 
@@ -13,7 +13,7 @@ class Scene:
         screen_width: int,
         screen_height: int,
         objects_to_render: List[o3.Renderable],
-        canvas_distance,
+        canvas_distance: float,
         bg_color,
     ) -> None:
         # save general paramters
@@ -25,55 +25,30 @@ class Scene:
         # save render parameters
         self.switch = True
         self.last_quadrant = None
+        self.dis = None
 
         # set up internal structures for objects to render
-        # for every object we save which triangles and rectangles belong to it, in order to later modify objects easily
-        # first list are the indices of triangles and second list are the indices of rectangles
-        self.objects = {elem.get_name(): [[], []] for elem in objects_to_render}
+        # for every object we save which triangles belong to it, in order to later modify objects easily
+        self.objects = {i: [] for i, elem in enumerate(objects_to_render)}
 
         self.triangle_origins = []
         self.triangle_vec1s = []
         self.triangle_vec2s = []
-        self.triangle_outlines = []
-        self.triangle_outline_colors = []
         self.triangle_fill_colors = []
 
-        self.rectangle_origins = []
-        self.rectangle_vec1s = []
-        self.rectangle_vec2s = []
-        self.rectangle_outlines = []
-        self.rectangle_outline_colors = []
-        self.rectangle_fill_colors = []
-
-        index_tri, index_rec = 0, 0
-        for object in objects_to_render:
+        index_tri = 0
+        for i, object in enumerate(objects_to_render):
             for triangle in object.get_triangles():
-                self.objects[object.get_name()][0].append(index_tri)
+                self.objects[i].append(index_tri)
                 self.triangle_origins.append(triangle.origin)
                 self.triangle_vec1s.append(triangle.vec1)
                 self.triangle_vec2s.append(triangle.vec2)
-                self.triangle_outlines.append(triangle.outline)
-                self.triangle_outline_colors.append(triangle.outline_color)
                 self.triangle_fill_colors.append(triangle.fill_color)
                 index_tri += 1
-
-            for rectangle in object.get_rectangles():
-                self.objects[object.get_name()][1].append(index_rec)
-                self.rectangle_origins.append(rectangle.origin)
-                self.rectangle_vec1s.append(rectangle.vec1)
-                self.rectangle_vec2s.append(rectangle.vec2)
-                self.rectangle_outlines.append(rectangle.outline)
-                self.rectangle_outline_colors.append(rectangle.outline_color)
-                self.rectangle_fill_colors.append(rectangle.fill_color)
-                index_rec += 1
 
         self.triangle_origins = np.array(self.triangle_origins)
         self.triangle_vec1s = np.array(self.triangle_vec1s)
         self.triangle_vec2s = np.array(self.triangle_vec2s)
-
-        self.rectangle_origins = np.array(self.rectangle_origins)
-        self.rectangle_vec1s = np.array(self.rectangle_vec1s)
-        self.rectangle_vec2s = np.array(self.rectangle_vec2s)
 
     def _getCanvasVecs(
         self, pov: np.ndarray, look_point: np.ndarray
@@ -100,7 +75,7 @@ class Scene:
         v, w = v / np.linalg.norm(v), w / np.linalg.norm(w)
 
         origin = pov + self.canvas_distance * (u / np.linalg.norm(u))
-        # move origin to bottom left of canvas
+        # move origin to top left of canvas
         origin = origin - v * self.width / 2 - w * self.height / 2
 
         return origin, v, w
@@ -119,7 +94,7 @@ class Scene:
         canvas_origin: np.ndarray,
         canvas_vecX: np.ndarray,
         canvas_vecY: np.ndarray,
-    ):
+    ) -> np.ndarray:
         # create vertices for each rectangle/triangle in 3D
         tri_options = [(1, 0), (0, 1)]
         tri_vertices = np.empty((len(self.triangle_origins), 3, 3))
@@ -131,49 +106,18 @@ class Scene:
                 + option[1] * self.triangle_vec2s
             )
 
-        rect_options = [(1, 0), (0, 1), (1, 1)]
-        rect_vertices = np.empty((len(self.rectangle_origins), 4, 3))
-        rect_vertices[:, 0] = self.rectangle_origins
-        for i, option in enumerate(rect_options):
-            rect_vertices[:, i + 1] = (
-                self.rectangle_origins
-                + option[0] * self.rectangle_vec1s
-                + option[1] * self.rectangle_vec2s
-            )
-
         # now map these to 2D
-        # first for all rectangles
         # create vector going from each vertex to the pov
-        rays_to_pov_rect = (pov[np.newaxis, np.newaxis] - rect_vertices)[
-            :, :, :, np.newaxis
-        ]
+        rays_to_pov_tri = pov[np.newaxis, np.newaxis] - tri_vertices
+        # normalize them so we can use them as distance measure later
+        rays_to_pov_tri = (
+            rays_to_pov_tri / np.linalg.norm(rays_to_pov_tri, axis=2)[:, :, np.newaxis]
+        )[:, :, :, np.newaxis]
 
-        # now get the barycentric coordinates of each vertex on the plane
+        # now get the barycentric coordinates of each vertex on the plane (canvas)
         # add dimension for each vector to get it in matrix form
         canvas_vecX_repeated = np.repeat(canvas_vecX[np.newaxis], 4, axis=0)
-        canvas_vecX_repeated_rect = np.repeat(
-            canvas_vecX_repeated[np.newaxis], len(rect_vertices), axis=0
-        )[:, :, :, np.newaxis]
         canvas_vecY_repeated = np.repeat(canvas_vecY[np.newaxis], 4, axis=0)
-        canvas_vecY_repeated_rect = np.repeat(
-            canvas_vecY_repeated[np.newaxis], len(rect_vertices), axis=0
-        )[:, :, :, np.newaxis]
-
-        # solve linear equation to get the 2D coordinates:
-        # vertex + t * (pov - vertex) = canvas_origin + x * canvas_VecX + y * canvas_VecY
-        matrix_rect = np.concatenate(
-            [canvas_vecX_repeated_rect, canvas_vecY_repeated_rect, -rays_to_pov_rect],
-            axis=3,
-        )
-        vector_rect = (rect_vertices - canvas_origin[np.newaxis, np.newaxis])[
-            :, :, :, np.newaxis
-        ]
-        x_y_t_rect = np.matmul(np.linalg.inv(matrix_rect), vector_rect)
-
-        # now for all triangles
-        rays_to_pov_tri = (pov[np.newaxis, np.newaxis] - tri_vertices)[
-            :, :, :, np.newaxis
-        ]
         canvas_vecX_repeated_tri = np.repeat(
             canvas_vecX_repeated[np.newaxis, :3], len(tri_vertices), axis=0
         )[:, :, :, np.newaxis]
@@ -181,6 +125,8 @@ class Scene:
             canvas_vecY_repeated[np.newaxis, :3], len(tri_vertices), axis=0
         )[:, :, :, np.newaxis]
 
+        # solve linear equation to get the 2D coordinates:
+        # vertex + t * (pov - vertex) = canvas_origin + x * canvas_VecX + y * canvas_VecY
         matrix_tri = np.concatenate(
             [canvas_vecX_repeated_tri, canvas_vecY_repeated_tri, -rays_to_pov_tri],
             axis=3,
@@ -188,9 +134,76 @@ class Scene:
         vector_tri = (tri_vertices - canvas_origin[np.newaxis, np.newaxis])[
             :, :, :, np.newaxis
         ]
-        x_y_t_tri = np.matmul(np.linalg.inv(matrix_tri), vector_tri)
+        tri_x_y_t = np.matmul(np.linalg.inv(matrix_tri), vector_tri)
 
-        return x_y_t_rect, x_y_t_tri
+        return tri_x_y_t[:, :, :, 0]
+
+    # TODO: parallelization of this should be easy so DO IT!!!
+    # assume v1.y > v2.y = v3.y
+    def __rasterizeBottomFlatTriangle(self, v1, v2, v3):
+        object_map = np.ones((self.width, self.height)) * np.inf
+        slope1 = -(v2[0] - v1[0]) / (v2[1] - v1[1])
+        slope2 = -(v3[0] - v1[0]) / (v3[1] - v1[1])
+
+        delta_t_x = max(v2, v3, key=lambda x: x[0]) - min(v2, v3, key=lambda x: x[0])
+        delta_t_x = delta_t_x[2] / delta_t_x[0]
+        delta_t_y = v2 - v1
+        delta_t_y[2] = delta_t_y[2] - delta_t_y[0] * delta_t_x
+        delta_t_y = delta_t_y[2] / delta_t_y[1]
+
+        curX1 = v1[0]
+        curX2 = v1[0]
+
+        for i in range(int(v1[1]), int(v2[1] + 1), -1):
+            object_map[int(min(curX1, curX2)) : int(max(curX1, curX2)) + 1, i] = (
+                v1[2]
+                + np.arange(int(min(curX1, curX2)), int(max(curX1, curX2)) + 1)
+                * delta_t_x
+                + (int(v1[1]) - i) * delta_t_y
+            )
+            curX1 += slope1
+            curX2 += slope2
+
+        return object_map
+
+    # TODO: implement
+    # assume v1.y = v2.y > v3.y
+    def __rasterizeTopFlatTriangle(self, v1, v2, v3):
+        return
+
+    def __rasterizeTriangle(self, triangle_x_y_t):
+        triangle_x_y_t = sorted(triangle_x_y_t, key=lambda x: x[1])
+
+        v1, v2, v3 = triangle_x_y_t[0], triangle_x_y_t[1], triangle_x_y_t[2]
+        # check for trivial case of bottom-flat triangle
+        if v1[1] == v2[1]:
+            self.__rasterizeBottomFlatTriangle(v1, v2, v3)
+        # check for trivial case of top-flat triangle
+        elif v2[1] == v3[1]:
+            self.__rasterizeTopFlatTriangle(v2, v3, v1)
+        # need to create artifical vertex to get a bottom-flat and top-flat triangle
+        else:
+            v4 = np.array(
+                [(v1[0] + ((v2[1] - v1[1]) / (v3[1] - v1[1]) * (v3[0] - v1[0]))), v2[1]]
+            )
+            # we need to compute t for v4
+            matrix_v4 = np.array([v2[:2] - v1[:2], v3[:2] - v1[:2]]).T
+            vector_v4 = v4 - v1[:2]
+            x_y = np.matmul(np.linalg.inv(matrix_v4), vector_v4)
+            v4 = np.array(
+                [
+                    v4[0],
+                    v4[1],
+                    v1[2] + x_y[0] * (v2[2] - v1[2]) + x_y[1] * (v3[2] - v1[2]),
+                ]
+            )
+            self.__rasterizeTopFlatTriangle(v2, v4, v1)
+            self.__rasterizeBottomFlatTriangle(v3, v2, v4)
+
+    def _rasterizeTriangles(self, tri_x_y_t: np.ndarray) -> np.ndarray:
+        object_distance_map = np.empty((self.width, self.height, 2))
+        for tri in tri_x_y_t[:1]:
+            return self.__rasterizeTriangle(tri)
 
     def _renderProjection(
         self,
@@ -199,340 +212,47 @@ class Scene:
         canvas_vecX: np.ndarray,
         canvas_vecY: np.ndarray,
     ):
-        rect_x_y_t, tri_x_y_t = self._get2DCoordinates(
-            pov, canvas_origin, canvas_vecX, canvas_vecY
-        )
+        # if self.dis is None:
+        #     pygame.init()
+        #     pygame.font.init()
+        #     self.dis = pygame.display.set_mode((self.width, self.height))
 
-        # you can use t as distance (just have to normalize the rays)
-        # next: ignore vertices that are behind the screen
-        # determine order in which to render them
+        tri_x_y_t = self._get2DCoordinates(pov, canvas_origin, canvas_vecX, canvas_vecY)
+        rgb_map = self._rasterizeTriangles(tri_x_y_t)
 
-    def render(self, pov: np.ndarray, look_point: np.ndarray, algorithm="projection"):
+        # pygame.surfarray.blit_array(self.dis, rgb_map)
+        # pygame.display.update()
+
+    def render(
+        self, pov: np.ndarray, look_point: np.ndarray, algorithm="projection"
+    ) -> None:
         o, v1, v2 = self._getCanvasVecs(pov, look_point)
         if algorithm == "projection":
             self._renderProjection(pov, o, v1, v2)
         elif algorithm == "raycast":
             self._renderRaycast(o, v1, v2)
         else:
-            print("Invalid algorithm, options are: " "projection" ", " "raycast" "")
-
-
-class ProjectionRenderer:
-    def __init__(
-        self, canvas_distance: float, width: int, height: int, bgColor
-    ) -> None:
-        self.switch = True
-        self.last_quadrant = None
-        # TODO: need to integrate canvas_distance
-        self.canvas_distance = canvas_distance
-        pygame.init()
-        pygame.font.init()
-        self.width, self.height = width, height
-        self.dis = pygame.display.set_mode((width, height))
-        self.bgColor = bgColor
-
-    # TODO: there's still a problem when u[0] and u[1] are zero, not sure how to fix it yet
-    # TODO: integrate canvas distance
-    def getCanvasCoordinates(self, pov: np.array, look_point: np.array, objects: list):
-        # create a plane that is perpendicular to the view vector and use it as canvas
-        u = look_point - pov
-        cur_quadrant = getQuadrant(u[0], u[1])
-        if cur_quadrant != -1:
-            if (
-                self.last_quadrant != None
-                and max(cur_quadrant, self.last_quadrant)
-                - min(cur_quadrant, self.last_quadrant)
-                == 2
-            ):
-                self.switch = not self.switch
-            self.last_quadrant = cur_quadrant
-
-        if self.switch:
-            v = np.array([u[1], -u[0], 0])
-        else:
-            v = np.array([-u[1], u[0], 0])
-        w = np.cross(u, v)
-
-        v, w = v / np.linalg.norm(v), w / np.linalg.norm(w)
-        canvas = Plane(-u / 2, v, w)
-        # canvas = Plane(pov + self.canvas_distance * (u / np.linalg.norm(u)), v, w)
-
-        # get Barycentric coordinates for each vertex from every object on the plane
-        num_vertices_total = 0
-        canvas_coords = []
-        for obj in objects:
-            canvas_coords.append([])
-            for i, vertex in enumerate(obj.vertices):
-                canvas_coords[-1].append(
-                    (
-                        canvas.getBarycentricCoordinates(vertex, pov - vertex),
-                        np.linalg.norm(pov - vertex),
-                        i,
-                    )
-                )
-                num_vertices_total += 1
-            canvas_coords[-1].sort(key=lambda x: x[1])
-
-        return canvas_coords, num_vertices_total
-
-    # TODO: this function is terribly slow, need to find a better/correct way to determine visiblity of faces
-    def computeVisibleFaces(
-        self, objects: list, canvas_coords, num_vertices_total: int
-    ):
-        # reset render info from previous render
-        for obj in objects:
-            for face in obj.faces:
-                face._resetCoordsInfo()
-
-        visible_faces = []
-        min_distances = [elem[0][1] for elem in canvas_coords]
-        current_elem = [0 for elem in canvas_coords]
-        for _ in range(num_vertices_total):
-            index_of_object_with_min_vertex = min_distances.index(min(min_distances))
-            min_vertex = canvas_coords[index_of_object_with_min_vertex][
-                current_elem[index_of_object_with_min_vertex]
-            ]
-
-            if not isAnyFaceOverVertex(visible_faces, min_vertex[0]):
-                for face in objects[index_of_object_with_min_vertex].faces:
-                    # set the vertex to visible in each face that contains it
-                    if min_vertex[2] in face.vertices:
-                        face._coordsInfo[
-                            face.vertices.index(min_vertex[2])
-                        ] = min_vertex
-                    # if new visible face (>= 3 visible vertices), add it to visible_faces
-                    if (
-                        sum([1 for elem in face._coordsInfo if elem != None]) >= 3
-                        and not face in visible_faces
-                    ):
-                        visible_faces.append(face)
-
-            current_elem[index_of_object_with_min_vertex] += 1
-            if (
-                current_elem[index_of_object_with_min_vertex]
-                > len(canvas_coords[index_of_object_with_min_vertex]) - 1
-            ):
-                min_distances[index_of_object_with_min_vertex] = np.inf
-            else:
-                min_distances[index_of_object_with_min_vertex] = canvas_coords[
-                    index_of_object_with_min_vertex
-                ][current_elem[index_of_object_with_min_vertex]][1]
-
-        return visible_faces
-
-    def render(self, pov: np.array, look_point: np.array, objects: list):
-        self.dis.fill(self.bgColor)
-        canvas_coordinates, num_vertices_total = self.getCanvasCoordinates(
-            pov, look_point, objects
-        )
-        visible_faces = self.computeVisibleFaces(
-            objects, canvas_coordinates, num_vertices_total
-        )
-
-        visible_faces = [
-            elem for elem in visible_faces if len(elem.getPolygonOfSelf()) == 4
-        ]
-        # render faces
-        for face in visible_faces:
-            polygon = face.getPolygonOfSelf()
-            pygame.draw.polygon(
-                self.dis,
-                face.color,
-                np.array([self.width / 2, self.height / 2]) + polygon,
+            print(
+                'Invalid algorithm for rendering, options are: "projection" and "raycast"'
             )
-            # for vertex in polygon:
-            #     pygame.draw.rect(
-            #         self.dis,
-            #         (255, 0, 0),
-            #         [self.width / 2 + vertex[0], self.height / 2 + vertex[1], 5, 5],
-            #     )
-
-
-# speedup of ~7 times compared to the other function in raycastrendering but still too slow
-def getColorMap(
-    width,
-    height,
-    bg_color,
-    pov,
-    canvas_origin,
-    canvas_vec1,
-    canvas_vec2,
-    objects_origin,
-    objects_vec1,
-    objects_vec2,
-    objects_color,
-):
-    # initialize color map and set the color for each pixel to the background color
-    rgb_map = np.empty((width, height, 3), dtype=np.int16)
-    t = np.arange(height) - height / 2
-    canvas_vec2 = np.repeat(canvas_vec2[np.newaxis, :], height, axis=0)
-    objects_vec1_repeated = np.repeat(
-        objects_vec1[np.newaxis, :, :, np.newaxis], height, axis=0
-    )
-    objects_vec2_repeated = np.repeat(
-        objects_vec2[np.newaxis, :, :, np.newaxis], height, axis=0
-    )
-    vector_b_repeated = np.repeat(
-        (pov - objects_origin)[np.newaxis, :, :, np.newaxis], height, axis=0
-    )
-
-    # append background color to object colors at the end for later
-    objects_color = np.append(objects_color, bg_color[np.newaxis, :], axis=0)
-
-    for i in range(width):
-        # create rays
-        # create ray direction (point on canvas - pov)
-        ray_direction = (
-            canvas_origin
-            + canvas_vec1 * (i - width / 2)
-            + canvas_vec2 * t[:, np.newaxis]
-            - pov
-        )
-        # now get intersection of ray with objects (rectangles)
-        # create matrix that needs to be inverted with shape (height, N, 3, 3), with N = number of squares in world
-        ray_direction_repeated = np.repeat(
-            ray_direction[:, np.newaxis, :, np.newaxis], len(objects_origin), axis=1
-        )
-        matrices_a = np.append(
-            objects_vec1_repeated,
-            np.append(objects_vec2_repeated, -ray_direction_repeated, axis=3),
-            axis=3,
-        )
-
-        inverse = np.linalg.pinv(matrices_a)
-        gamma_phi_t = np.matmul(inverse, vector_b_repeated)
-
-        outside_of_rect = (
-            (gamma_phi_t[:, :, 0, 0] < 0)
-            | (gamma_phi_t[:, :, 0, 0] > 1)
-            | (gamma_phi_t[:, :, 1, 0] < 0)
-            | (gamma_phi_t[:, :, 1, 0] > 1)
-            | (gamma_phi_t[:, :, 2, 0] <= 0)
-        )
-        valid_t = np.where(outside_of_rect, np.inf, gamma_phi_t[:, :, 2, 0])
-        obj_seen = np.argmin(valid_t, axis=1)
-        all_inf = (valid_t == np.inf).all(axis=1)
-        color = np.where(all_inf, -1, obj_seen)
-
-        rgb_map[i] = objects_color[color]
-
-    return rgb_map
-
-
-# TERRIBLY SLOW, DON'T USE
-class RaycastRenderer:
-    def __init__(
-        self, canvas_distance: float, width: int, height: int, bgColor
-    ) -> None:
-        self.switch = True
-        self.last_quadrant = None
-        self.canvas_distance = canvas_distance
-        pygame.init()
-        pygame.font.init()
-        self.width, self.height = width, height
-        self.dis = pygame.display.set_mode((width, height))
-        self.bgColor = bgColor
-
-    def _getColorMap(self, pov: o3.Vector3D, look_point: o3.Vector3D, objects: list):
-        u = look_point - pov
-        cur_quadrant = getQuadrant(u[0], u[1])
-        if cur_quadrant != -1:
-            if (
-                self.last_quadrant != None
-                and max(cur_quadrant, self.last_quadrant)
-                - min(cur_quadrant, self.last_quadrant)
-                == 2
-            ):
-                self.switch = not self.switch
-            self.last_quadrant = cur_quadrant
-
-        if self.switch:
-            v = np.array([u[1], -u[0], 0])
-        else:
-            v = np.array([-u[1], u[0], 0])
-        w = np.cross(u, v)
-
-        v, w = v / np.linalg.norm(v), w / np.linalg.norm(w)
-        canvas = Plane(-u / 2, v, w)
-
-        # temp
-        origins_obj = np.empty((len(objects) * 6, 3))
-        vec1_obj = np.empty((len(objects) * 6, 3))
-        vec2_obj = np.empty((len(objects) * 6, 3))
-        colors_obj = np.empty((len(objects) * 6, 3))
-
-        i = 0
-        for obj in objects:
-            for rect in obj.rectangles:
-                origins_obj[i] = rect.origin
-                vec1_obj[i] = rect.vec1
-                vec2_obj[i] = rect.vec2
-                colors_obj[i] = rect.color
-                i += 1
-
-        return getColorMap(
-            self.width,
-            self.height,
-            self.bgColor,
-            pov,
-            -u / 2,
-            v,
-            w,
-            origins_obj,
-            vec1_obj,
-            vec2_obj,
-            colors_obj,
-        )
-
-        return self._getColorMapHelper(pov, canvas, objects)
-
-    # rather use other function (its much faster)
-    def _getColorMapHelper(self, pov: o3.Vector3D, canvas: Plane, objects):
-        rgb_map = np.zeros((self.width, self.height, 3))
-        for i in range(self.width):
-            for j in range(self.height):
-                ray = o3.Ray(
-                    pov,
-                    canvas.convertBarycentricCoordinates(
-                        -self.width / 2 + i, -self.height / 2 + j
-                    )
-                    - pov,
-                )
-                records = [o3.HitRecord() for _ in range(len(objects))]
-                any_hit = False
-                for k, obj in enumerate(objects):
-                    if obj.hit(ray, records[k]):
-                        any_hit = True
-
-                if any_hit:
-                    records = [elem for elem in records if elem.t != None]
-                    min_record = min(records, key=lambda x: x.t)
-                    rgb_map[i, j] = min_record.color
-                else:
-                    rgb_map[i, j] = self.bgColor
-
-        return rgb_map
-
-    def render(self, pov: o3.Vector3D, look_point: o3.Vector3D, objects: list):
-        rgbmap = self._getColorMap(pov, look_point, objects)
-        pygame.surfarray.blit_array(self.dis, rgbmap)
 
 
 if __name__ == "__main__":
-    pov = np.array([0.1, 0.1, 500], dtype=np.float32)
+    pov = np.array([300, 600, 300])
     look_point = np.array([0, 0, 0])
 
     a, b, c = (
-        np.array([-50, -50, -50]),
-        np.array([-50, 50, -50]),
-        np.array([50, -50, -50]),
+        np.array([-100, -100, -100]),
+        np.array([-100, 100, -100]),
+        np.array([100, -100, -100]),
     )
-    top = np.array([0, 0, 50])
+    top = np.array([0, 0, 100])
 
-    ground = o3.Rectangle3D(a, b - a, c - a, 0, (0, 0, 0), (0, 0, 0))
-    pyr = o3.Pyramid("TestPyramid", ground, top, (0, 0, 0))
+    pyr = o3.Pyramid(a, b - a, c - a, top, (0, 0, 0))
     objects_to_render = [pyr]
 
-    sce = Scene(400, 400, objects_to_render, 100, (50, 50, 50))
-    t = timeit.Timer(lambda: sce.render(pov, look_point))
-    print(t.timeit(1))
+    sce = Scene(400, 400, objects_to_render, 500, (50, 50, 50))
+    cur_time = time.time()
+    sce.render(pov, look_point)
+    print(time.time() - cur_time)
+    # time.sleep(5)

@@ -3,86 +3,64 @@ import abc
 from typing import List
 
 
-class Rectangle3D:
-    def __init__(
-        self,
-        origin: np.ndarray,
-        vec1: np.ndarray,
-        vec2: np.ndarray,
-        outline: float,
-        outline_color,
-        fill_color,
-    ) -> None:
-        self.origin = origin
-        self.vec1 = vec1
-        self.vec2 = vec2
-        self.outline = outline
-        self.outline_color = outline_color
-        self.fill_color = fill_color
-
-
 class Triangle3D:
     def __init__(
         self,
         origin: np.ndarray,
         vec1: np.ndarray,
         vec2: np.ndarray,
-        outline: float,
-        outline_color,
         fill_color,
     ) -> None:
         self.origin = origin
         self.vec1 = vec1
         self.vec2 = vec2
-        self.outline = outline
-        self.outline_color = outline_color
         self.fill_color = fill_color
+
+    def __call__(self, u, v) -> np.ndarray:
+        return self.origin + u * self.vec1 + v * self.vec2
 
 
 class Renderable(abc.ABC):
     @abc.abstractmethod
-    def get_name(self) -> str:
-        pass
-
-    @abc.abstractmethod
     def get_triangles(self) -> List[Triangle3D]:
-        pass
-
-    @abc.abstractmethod
-    def get_rectangles(self) -> List[Rectangle3D]:
         pass
 
 
 class Pyramid(Renderable):
-    def __init__(self, name: str, ground: Rectangle3D, top: np.ndarray, color) -> None:
-        self.name = name
-        self.rectangles = [ground]
-        vertices_ground = []
-        for i in [0, 1]:
-            for j in [0, 1]:
-                vertices_ground.append(
-                    ground.origin + i * ground.vec1 + j * ground.vec2
-                )
-
-        # [0, 0], [0, 1], [1, 0], [1, 1]
-        triangle_groups = [(0, 1), (0, 2), (3, 1), (3, 2)]
+    def __init__(
+        self,
+        ground_origin: np.ndarray,
+        ground_vec1: np.ndarray,
+        ground_vec2: np.ndarray,
+        top: np.ndarray,
+        color,
+    ) -> None:
         self.triangles = []
-        for group in triangle_groups:
-            origin, vec1, vec2 = (
-                vertices_ground[group[0]],
-                top - vertices_ground[group[0]],
-                vertices_ground[group[1]] - vertices_ground[group[0]],
-            )
-            self.triangles.append(Triangle3D(origin, vec1, vec2, 0, color, color))
+        ground_tri1 = Triangle3D(ground_origin, ground_vec1, ground_vec2, color)
+        ground_tri2 = Triangle3D(
+            ground_origin + ground_vec1 + ground_vec2, -ground_vec1, -ground_vec2, color
+        )
+        self.triangles = [ground_tri1, ground_tri2]
+        ground_vertices = [
+            ground_tri1(0, 0),
+            ground_tri1(0, 1),
+            ground_tri1(1, 0),
+            ground_tri1(1, 1),
+        ]
 
-    def get_name(self) -> str:
-        return self.name
+        triangle_groups = [(0, 1), (0, 2), (3, 1), (3, 2)]
+        for group in triangle_groups:
+            self.triangles.append(
+                Triangle3D(
+                    ground_vertices[group[0]],
+                    ground_vertices[group[1]] - ground_vertices[group[0]],
+                    top - ground_vertices[group[0]],
+                    color,
+                )
+            )
 
     def get_triangles(self) -> List[Triangle3D]:
         return self.triangles
-
-    def get_rectangles(self) -> List[Rectangle3D]:
-        return self.rectangles
 
 
 """""" """""" """""" """""" """""" """"""
