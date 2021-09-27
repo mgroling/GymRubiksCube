@@ -54,14 +54,7 @@ class Cube(Renderable):
             ]
         )
 
-        face_groups = [
-            (0, 1, 2),
-            (0, 1, 4),
-            (0, 2, 4),
-            (7, 6, 5),
-            (7, 6, 3),
-            (7, 5, 3),
-        ]
+        face_groups = [(0, 1, 2), (0, 1, 4), (0, 2, 4), (7, 6, 3), (7, 5, 3), (7, 6, 5)]
         self.triangles = []
         for i, group in enumerate(face_groups):
             col = color if type(color) != list else color[i]

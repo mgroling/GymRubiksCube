@@ -3,12 +3,12 @@ from functions import *
 import objects3D as o3
 from typing import List, Tuple
 from numba import njit, prange
-
+import time
 
 # assume v1.y > v2.y = v3.y
 @njit
 def rasterizeBottomFlatTriangle(v1, v2, v3, width, height):
-    object_map = np.ones((width, height), dtype=np.float64) * np.inf
+    object_map = np.ones((width, height), dtype=np.float32) * np.inf
     slope1 = -(v2[0] - v1[0]) / (v2[1] - v1[1])
     slope2 = -(v3[0] - v1[0]) / (v3[1] - v1[1])
 
@@ -26,12 +26,7 @@ def rasterizeBottomFlatTriangle(v1, v2, v3, width, height):
 
     for i in range(int(v1[1]), int(v2[1]) - 1, -1):
         curX1_int, curX2_int = int(curX1), int(curX2)
-        object_map[
-            max(min(curX1_int, curX2_int), 0) : min(
-                max(curX1_int, curX2_int) + 1, height - 1
-            ),
-            i,
-        ] = (
+        temp = (
             v1[2]
             + np.arange(
                 max(min(curX1_int, curX2_int), 0) - int(v1[0]),
@@ -40,6 +35,14 @@ def rasterizeBottomFlatTriangle(v1, v2, v3, width, height):
             * delta_t_x
             + (int(v1[1]) - i) * delta_t_y
         )
+        object_map[
+            max(min(curX1_int, curX2_int), 0) : min(
+                max(curX1_int, curX2_int) + 1, height - 1
+            ),
+            i,
+        ] = np.where(
+            temp < 0, np.inf, temp
+        )  # make sure only vertices infront of the canvas are visible
 
         curX1 += slope1
         curX2 += slope2
@@ -50,7 +53,7 @@ def rasterizeBottomFlatTriangle(v1, v2, v3, width, height):
 # assume v1.y = v2.y < v3.y
 @njit
 def rasterizeTopFlatTriangle(v1, v2, v3, width, height):
-    object_map = np.ones((width, height), dtype=np.float64) * np.inf
+    object_map = np.ones((width, height), dtype=np.float32) * np.inf
     slope1 = (v3[0] - v1[0]) / (v3[1] - v1[1])
     slope2 = (v3[0] - v2[0]) / (v3[1] - v2[1])
 
@@ -68,12 +71,7 @@ def rasterizeTopFlatTriangle(v1, v2, v3, width, height):
 
     for i in range(int(v3[1]), int(v1[1]) + 1):
         curX1_int, curX2_int = int(curX1), int(curX2)
-        object_map[
-            max(min(curX1_int, curX2_int), 0) : min(
-                max(curX1_int, curX2_int) + 1, height - 1
-            ),
-            i,
-        ] = (
+        temp = (
             v3[2]
             + np.arange(
                 max(min(curX1_int, curX2_int), 0) - int(v3[0]),
@@ -82,9 +80,64 @@ def rasterizeTopFlatTriangle(v1, v2, v3, width, height):
             * delta_t_x
             + (int(v3[1]) - i) * delta_t_y
         )
+        object_map[
+            max(min(curX1_int, curX2_int), 0) : min(
+                max(curX1_int, curX2_int) + 1, height - 1
+            ),
+            i,
+        ] = np.where(
+            temp < 0, np.inf, temp
+        )  # make sure only vertices infront of the canvas are visible
 
         curX1 += slope1
         curX2 += slope2
+
+    return object_map
+
+
+@njit
+def rasterizeTriangle(triangle_x_y_t, width, height):
+    # https://numpy.org/doc/stable/reference/generated/numpy.sort.html
+    triangle_x_y_t = sorted(triangle_x_y_t, key=lambda x: x[1])
+
+    v1, v2, v3 = triangle_x_y_t[0], triangle_x_y_t[1], triangle_x_y_t[2]
+    if int(v1[1]) == int(v2[1]) and int(v2[1]) == int(v3[1]):
+        return np.ones((width, height)) * np.inf
+    # check for trivial case of bottom-flat triangle
+    elif v1[1] == v2[1]:
+        return rasterizeBottomFlatTriangle(v3, v1, v2, width, height)
+    # check for trivial case of top-flat triangle
+    elif v2[1] == v3[1]:
+        return rasterizeTopFlatTriangle(v2, v3, v1, width, height)
+    # need to create artifical vertex to get a bottom-flat and top-flat triangle
+    else:
+        v4 = np.array(
+            [(v1[0] + ((v2[1] - v1[1]) / (v3[1] - v1[1]) * (v3[0] - v1[0]))), v2[1]]
+        )
+        # we need to compute t for v4
+        matrix_v4 = np.array(
+            [[v2[0] - v1[0], v3[0] - v1[0]], [v2[1] - v1[1], v3[1] - v1[1]]]
+        )
+        vector_v4 = v4 - v1[:2]
+        x_y = np.dot(np.linalg.inv(matrix_v4), vector_v4)
+        v4 = np.array(
+            [
+                v4[0],
+                v4[1],
+                v1[2] + x_y[0] * (v2[2] - v1[2]) + x_y[1] * (v3[2] - v1[2]),
+            ]
+        )
+        return np.minimum(
+            rasterizeTopFlatTriangle(v2, v4, v1, width, height),
+            rasterizeBottomFlatTriangle(v3, v2, v4, width, height),
+        )
+
+
+@njit(parallel=True)
+def rasterizeTrianglesHelp(tri_x_y_t, width, height):
+    object_map = np.empty((len(tri_x_y_t) + 1, width, height), dtype=np.float32)
+    for i in prange(len(tri_x_y_t)):
+        object_map[i] = rasterizeTriangle(tri_x_y_t[i], width, height)
 
     return object_map
 
@@ -98,7 +151,7 @@ class Scene:
         canvas_distance: float,
         bg_color,
     ) -> None:
-        # save general paramters
+        # save general parameters
         self.width = screen_width
         self.height = screen_height
         self.canvas_distance = canvas_distance
@@ -220,7 +273,6 @@ class Scene:
 
         return tri_x_y_t[:, :, :, 0]
 
-    # TODO: parallelization of this should be easy, so DO IT!!!
     # assume v1.y > v2.y = v3.y
     def __rasterizeBottomFlatTriangle(self, v1, v2, v3):
         object_map = np.ones((self.width, self.height), dtype=np.float64) * np.inf
@@ -296,6 +348,7 @@ class Scene:
         return object_map
 
     def __rasterizeTriangle(self, triangle_x_y_t):
+        # https://numpy.org/doc/stable/reference/generated/numpy.sort.html
         triangle_x_y_t = sorted(triangle_x_y_t, key=lambda x: x[1])
 
         v1, v2, v3 = triangle_x_y_t[0], triangle_x_y_t[1], triangle_x_y_t[2]
@@ -323,24 +376,20 @@ class Scene:
                     v1[2] + x_y[0] * (v2[2] - v1[2]) + x_y[1] * (v3[2] - v1[2]),
                 ]
             )
-            temp = np.minimum(
+            return np.minimum(
                 rasterizeTopFlatTriangle(v2, v4, v1, self.width, self.height),
                 rasterizeBottomFlatTriangle(v3, v2, v4, self.width, self.height),
             )
-            return temp
 
     def _rasterizeTriangles(self, tri_x_y_t: np.ndarray) -> np.ndarray:
-        object_map = np.empty((len(tri_x_y_t), self.width, self.height))
-        for i, tri in enumerate(tri_x_y_t):
-            object_map[i] = self.__rasterizeTriangle(tri)
-            # make sure only vertices infront of the canvas are visible
-            object_map[i] = np.where(object_map[i] < 0, np.inf, object_map[i])
+        object_map = rasterizeTrianglesHelp(tri_x_y_t, self.width, self.height)
 
-        # get maximum element and add it in the end, in order to see if all values are infinity for an x, y
-        max = np.where(np.isinf(object_map), -np.Inf, object_map).max()
-        max_plus1 = np.ones((self.width, self.height)) * max + 1
-        object_map = np.append(object_map, max_plus1[np.newaxis], axis=0)
-        colors = np.array(self.triangle_fill_colors + [self.bg_color])
+        # append (non infinity-element) in the end, in order to see if all values would be infinity, then we render the background color
+        # assume that this is the biggest element (distance of an object would need to be greater than it (which shouldn't ever happen))
+        max_plus1 = np.ones((self.width, self.height)) * 100000
+        object_map[-1] = max_plus1
+
+        colors = np.array(self.triangle_fill_colors + [self.bg_color], dtype=np.uint8)
 
         # now for each pixel get the object id of the object that is closest
         pixel_id = np.argmin(object_map, axis=0)
