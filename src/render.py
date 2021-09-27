@@ -3,7 +3,6 @@ from functions import *
 import objects3D as o3
 from typing import List, Tuple
 from numba import njit, prange
-import time
 
 # assume v1.y > v2.y = v3.y
 @njit
@@ -155,12 +154,11 @@ class Scene:
         self.width = screen_width
         self.height = screen_height
         self.canvas_distance = canvas_distance
-        self.bg_color = bg_color
+        self.bg_color = np.array(bg_color)
 
         # save render parameters
         self.switch = True
         self.last_quadrant = None
-        self.dis = None
 
         # set up internal structures for objects to render
         # for every object we save which triangles belong to it, in order to later modify objects easily
@@ -215,13 +213,75 @@ class Scene:
 
         return origin, v, w
 
+    # something wrong with this, not sure what (don't really wanna spend time fixing it though)
     def _renderRaycast(
         self,
+        pov: np.ndarray,
         canvas_origin: np.ndarray,
         canvas_vecX: np.ndarray,
         canvas_vecY: np.ndarray,
     ):
-        pass
+        # initialize color map
+        rgb_map = np.empty((self.width, self.height, 3), dtype=np.int16)
+        t = np.arange(self.height) - self.height / 2
+        canvas_vec2 = np.repeat(canvas_vecY[np.newaxis, :], self.height, axis=0)
+        objects_vec1_repeated = np.repeat(
+            self.triangle_vec1s[np.newaxis, :, :, np.newaxis], self.height, axis=0
+        )
+        objects_vec2_repeated = np.repeat(
+            self.triangle_vec2s[np.newaxis, :, :, np.newaxis], self.height, axis=0
+        )
+        vector_b_repeated = np.repeat(
+            (pov - self.triangle_origins)[np.newaxis, :, :, np.newaxis],
+            self.height,
+            axis=0,
+        )
+
+        # append background color to object colors at the end for later
+        objects_color = np.append(
+            self.triangle_fill_colors, self.bg_color[np.newaxis, :], axis=0
+        )
+
+        for i in range(self.width):
+            # create rays
+            # create ray direction (point on canvas - pov)
+            ray_direction = (
+                canvas_origin
+                + canvas_vecX * (i - self.width / 2)
+                + canvas_vec2 * t[:, np.newaxis]
+                - pov
+            )
+            # now get intersection of ray with objects (rectangles)
+            # create matrix that needs to be inverted with shape (height, N, 3, 3), with N = number of squares in world
+            ray_direction_repeated = np.repeat(
+                ray_direction[:, np.newaxis, :, np.newaxis],
+                len(self.triangle_origins),
+                axis=1,
+            )
+            matrices_a = np.append(
+                objects_vec1_repeated,
+                np.append(objects_vec2_repeated, -ray_direction_repeated, axis=3),
+                axis=3,
+            )
+
+            inverse = np.linalg.pinv(matrices_a)
+            gamma_phi_t = np.matmul(inverse, vector_b_repeated)
+
+            outside_of_rect = (
+                (gamma_phi_t[:, :, 0, 0] < 0)
+                | (gamma_phi_t[:, :, 0, 0] > 1)
+                | (gamma_phi_t[:, :, 1, 0] < 0)
+                | (gamma_phi_t[:, :, 1, 0] + gamma_phi_t[:, :, 0, 0] > 1)
+                | (gamma_phi_t[:, :, 2, 0] <= 0)
+            )
+            valid_t = np.where(outside_of_rect, np.inf, gamma_phi_t[:, :, 2, 0])
+            obj_seen = np.argmin(valid_t, axis=1)
+            all_inf = (valid_t == np.inf).all(axis=1)
+            color = np.where(all_inf, -1, obj_seen)
+
+            rgb_map[i] = objects_color[color]
+
+        return rgb_map
 
     def _get2DCoordinates(
         self,
@@ -273,114 +333,6 @@ class Scene:
 
         return tri_x_y_t[:, :, :, 0]
 
-    # assume v1.y > v2.y = v3.y
-    def __rasterizeBottomFlatTriangle(self, v1, v2, v3):
-        object_map = np.ones((self.width, self.height), dtype=np.float64) * np.inf
-        slope1 = -(v2[0] - v1[0]) / (v2[1] - v1[1])
-        slope2 = -(v3[0] - v1[0]) / (v3[1] - v1[1])
-
-        delta_t_x = max(v2, v3, key=lambda x: x[0]) - min(v2, v3, key=lambda x: x[0])
-        delta_t_x = delta_t_x[2] / delta_t_x[0]
-        delta_t_y = v2 - v1
-        delta_t_y[2] = delta_t_y[2] - delta_t_y[0] * delta_t_x
-        delta_t_y = -delta_t_y[2] / delta_t_y[1]
-
-        curX1 = v1[0]
-        curX2 = v1[0]
-
-        for i in range(int(v1[1]), int(v2[1]) - 1, -1):
-            curX1_int, curX2_int = int(curX1), int(curX2)
-            object_map[
-                max(min(curX1_int, curX2_int), 0) : min(
-                    max(curX1_int, curX2_int) + 1, self.height - 1
-                ),
-                i,
-            ] = (
-                v1[2]
-                + np.arange(
-                    max(min(curX1_int, curX2_int), 0) - int(v1[0]),
-                    min(max(curX1_int, curX2_int), self.height - 2) - int(v1[0]) + 1,
-                )
-                * delta_t_x
-                + (int(v1[1]) - i) * delta_t_y
-            )
-
-            curX1 += slope1
-            curX2 += slope2
-
-        return object_map
-
-    # assume v1.y = v2.y < v3.y
-    def __rasterizeTopFlatTriangle(self, v1, v2, v3):
-        object_map = np.ones((self.width, self.height)) * np.inf
-        slope1 = (v3[0] - v1[0]) / (v3[1] - v1[1])
-        slope2 = (v3[0] - v2[0]) / (v3[1] - v2[1])
-
-        delta_t_x = max(v1, v2, key=lambda x: x[0]) - min(v1, v2, key=lambda x: x[0])
-        delta_t_x = delta_t_x[2] / delta_t_x[0]
-        delta_t_y = v3 - v2
-        delta_t_y[2] = delta_t_y[2] - delta_t_y[0] * delta_t_x
-        delta_t_y = -delta_t_y[2] / delta_t_y[1]
-
-        curX1 = v3[0]
-        curX2 = v3[0]
-
-        for i in range(int(v3[1]), int(v1[1]) + 1):
-            curX1_int, curX2_int = int(curX1), int(curX2)
-            object_map[
-                max(min(curX1_int, curX2_int), 0) : min(
-                    max(curX1_int, curX2_int) + 1, self.height - 1
-                ),
-                i,
-            ] = (
-                v3[2]
-                + np.arange(
-                    max(min(curX1_int, curX2_int), 0) - int(v3[0]),
-                    min(max(curX1_int, curX2_int), self.height - 2) - int(v3[0]) + 1,
-                )
-                * delta_t_x
-                + (int(v3[1]) - i) * delta_t_y
-            )
-
-            curX1 += slope1
-            curX2 += slope2
-
-        return object_map
-
-    def __rasterizeTriangle(self, triangle_x_y_t):
-        # https://numpy.org/doc/stable/reference/generated/numpy.sort.html
-        triangle_x_y_t = sorted(triangle_x_y_t, key=lambda x: x[1])
-
-        v1, v2, v3 = triangle_x_y_t[0], triangle_x_y_t[1], triangle_x_y_t[2]
-        if int(v1[1]) == int(v2[1]) and int(v2[1]) == int(v3[1]):
-            return np.ones((self.width, self.height)) * np.inf
-        # check for trivial case of bottom-flat triangle
-        elif v1[1] == v2[1]:
-            return rasterizeBottomFlatTriangle(v3, v1, v2, self.width, self.height)
-        # check for trivial case of top-flat triangle
-        elif v2[1] == v3[1]:
-            return rasterizeTopFlatTriangle(v2, v3, v1, self.width, self.height)
-        # need to create artifical vertex to get a bottom-flat and top-flat triangle
-        else:
-            v4 = np.array(
-                [(v1[0] + ((v2[1] - v1[1]) / (v3[1] - v1[1]) * (v3[0] - v1[0]))), v2[1]]
-            )
-            # we need to compute t for v4
-            matrix_v4 = np.array([v2[:2] - v1[:2], v3[:2] - v1[:2]]).T
-            vector_v4 = v4 - v1[:2]
-            x_y = np.matmul(np.linalg.inv(matrix_v4), vector_v4)
-            v4 = np.array(
-                [
-                    v4[0],
-                    v4[1],
-                    v1[2] + x_y[0] * (v2[2] - v1[2]) + x_y[1] * (v3[2] - v1[2]),
-                ]
-            )
-            return np.minimum(
-                rasterizeTopFlatTriangle(v2, v4, v1, self.width, self.height),
-                rasterizeBottomFlatTriangle(v3, v2, v4, self.width, self.height),
-            )
-
     def _rasterizeTriangles(self, tri_x_y_t: np.ndarray) -> np.ndarray:
         object_map = rasterizeTrianglesHelp(tri_x_y_t, self.width, self.height)
 
@@ -414,15 +366,8 @@ class Scene:
         if algorithm == "projection":
             return self._renderProjection(pov, o, v1, v2)
         elif algorithm == "raycast":
-            return self._renderRaycast(o, v1, v2)
+            return self._renderRaycast(pov, o, v1, v2)
         else:
             print(
                 'Invalid algorithm for rendering, options are: "projection" and "raycast"'
             )
-
-
-if __name__ == "__main__":
-    a = np.array([66, 120, 100])
-    b = np.array([178, 73, 80])
-    c = np.array([120, 73, 120])
-    rasterizeBottomFlatTriangle(a, b, c, 400, 400)
