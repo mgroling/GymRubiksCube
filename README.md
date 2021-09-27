@@ -7,5 +7,5 @@ As the name of the Repository suggests, it is all about the Rubicks Cube. This i
 ## Content
 
 - Function that can render 3D objects (consisting of triangles) on a 2D surface
-- Interactive mode to view the objects from all perspectives
+- Interactive mode to view the rendered objects from all perspectives
 - (soon) Algorithms to solve the Rubick's Cube
