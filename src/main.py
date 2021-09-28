@@ -4,7 +4,7 @@ import time
 from objects3D import Cube, Pyramid
 from render import Scene
 from functions import *
-from PIL import Image
+from PIL import Image, ImageFilter
 
 if __name__ == "__main__":
     WIDTH, HEIGHT = 300, 300
@@ -48,10 +48,10 @@ if __name__ == "__main__":
     scene = Scene(WIDTH, HEIGHT, objects_to_render, 400, (50, 50, 50))
 
     pygame.display.set_caption("Rubik's Cube")
-    sphere = Sphere(1000)
+    sphere = Sphere(800)
     look_point = np.array([0, 0, 0])
 
-    cap_fps = 10
+    cap_fps = 12
     over = False
     delta_theta, delta_phi = 0, 0
     time_passed = None
@@ -92,6 +92,7 @@ if __name__ == "__main__":
         color_map = scene.render(pov, look_point)
         img = Image.fromarray(color_map, mode="RGB")
         img = img.resize((2 * WIDTH, 2 * HEIGHT), resample=Image.NEAREST)
+        # img = img.filter(ImageFilter.SMOOTH)
         img = np.array(img)
         pygame.surfarray.blit_array(dis, img)
         # pygame.surfarray.blit_array(dis, color_map)

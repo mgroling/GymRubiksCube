@@ -1,15 +1,18 @@
 import numpy as np
-from functions import *
+from functions import getQuadrant
 import objects3D as o3
 from typing import List, Tuple
 from numba import njit, prange
 
-# assume v1.y > v2.y = v3.y
+import pygame
+
+
 @njit
 def rasterizeBottomFlatTriangle(v1, v2, v3, width, height):
+    """assumes v1.y < v2.y = v3.y"""
     object_map = np.ones((width, height), dtype=np.float32) * np.inf
-    slope1 = -(v2[0] - v1[0]) / (v2[1] - v1[1])
-    slope2 = -(v3[0] - v1[0]) / (v3[1] - v1[1])
+    slope1 = -(v2[0] - v1[0]) / np.floor(v2[1] - v1[1])
+    slope2 = -(v3[0] - v1[0]) / np.floor(v3[1] - v1[1])
 
     if v2[0] > v3[0]:
         delta_t_x = v2 - v3
@@ -24,7 +27,9 @@ def rasterizeBottomFlatTriangle(v1, v2, v3, width, height):
     curX2 = v1[0]
 
     for i in range(int(v1[1]), int(v2[1]) - 1, -1):
-        curX1_int, curX2_int = int(curX1), int(curX2)
+        curX1_int, curX2_int = int(curX1), int(
+            curX2
+        )  # clip between min x and max x of v1, v2
         temp = (
             v1[2]
             + np.arange(
@@ -49,12 +54,14 @@ def rasterizeBottomFlatTriangle(v1, v2, v3, width, height):
     return object_map
 
 
-# assume v1.y = v2.y < v3.y
 @njit
 def rasterizeTopFlatTriangle(v1, v2, v3, width, height):
+    """assumes v1.y = v2.y < v3.y"""
     object_map = np.ones((width, height), dtype=np.float32) * np.inf
-    slope1 = (v3[0] - v1[0]) / (v3[1] - v1[1])
-    slope2 = (v3[0] - v2[0]) / (v3[1] - v2[1])
+    slope1 = (v3[0] - v1[0]) / np.floor(v3[1] - v1[1])
+    slope2 = (v3[0] - v2[0]) / np.floor(v3[1] - v2[1])
+
+    minX, maxX = min(v1[0], v2[0]), max(v1[0], v2[0])
 
     if v1[0] > v2[0]:
         delta_t_x = v1 - v2
@@ -69,7 +76,9 @@ def rasterizeTopFlatTriangle(v1, v2, v3, width, height):
     curX2 = v3[0]
 
     for i in range(int(v3[1]), int(v1[1]) + 1):
-        curX1_int, curX2_int = int(curX1), int(curX2)
+        curX1_int, curX2_int = int(curX1), int(
+            curX2
+        )  # clip between min x and max x of v1, v2
         temp = (
             v3[2]
             + np.arange(
@@ -81,8 +90,9 @@ def rasterizeTopFlatTriangle(v1, v2, v3, width, height):
         )
         object_map[
             max(min(curX1_int, curX2_int), 0) : min(
-                max(curX1_int, curX2_int) + 1, height - 1
-            ),
+                max(curX1_int, curX2_int), height - 2
+            )
+            + 1,
             i,
         ] = np.where(
             temp < 0, np.inf, temp
@@ -371,3 +381,25 @@ class Scene:
             print(
                 'Invalid algorithm for rendering, options are: "projection" and "raycast"'
             )
+
+
+if __name__ == "__main__":
+    object_map = rasterizeTopFlatTriangle(
+        np.array([100, 200, 50]),
+        np.array([200, 200, 50]),
+        np.array([200, 197.9, 50]),
+        300,
+        300,
+    )
+    object_map = np.where(object_map != np.inf, 255, object_map)
+    object_map[100:200, 290:310] = 255
+
+    pygame.init()
+    dis = pygame.display.set_mode((300, 300))
+    pygame.surfarray.blit_array(dis, object_map)
+    pygame.display.update()
+    over = False
+    while not over:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                over = True
