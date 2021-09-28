@@ -4,7 +4,7 @@ import time
 from objects3D import Cube, Pyramid
 from render import Scene
 from functions import *
-from PIL import Image, ImageFilter
+from PIL import Image
 
 if __name__ == "__main__":
     WIDTH, HEIGHT = 300, 300
@@ -92,7 +92,6 @@ if __name__ == "__main__":
         color_map = scene.render(pov, look_point)
         img = Image.fromarray(color_map, mode="RGB")
         img = img.resize((2 * WIDTH, 2 * HEIGHT), resample=Image.NEAREST)
-        # img = img.filter(ImageFilter.SMOOTH)
         img = np.array(img)
         pygame.surfarray.blit_array(dis, img)
         # pygame.surfarray.blit_array(dis, color_map)

@@ -24,9 +24,17 @@ def convertRectangleToTriangles(
     rect_origin: np.ndarray, rect_vec1: np.ndarray, rect_vec2: np.ndarray, fill_color
 ) -> List[Triangle3D]:
     return [
-        Triangle3D(rect_origin, rect_vec1, rect_vec2, fill_color),
         Triangle3D(
-            rect_origin + rect_vec1 + rect_vec2, -rect_vec1, -rect_vec2, fill_color
+            rect_origin,
+            rect_vec1 + 3 * (rect_vec1 / np.linalg.norm(rect_vec1)),
+            rect_vec2 + 3 * (rect_vec2 / np.linalg.norm(rect_vec2)),
+            fill_color,
+        ),
+        Triangle3D(
+            rect_origin + rect_vec1 + rect_vec2,
+            -rect_vec1 - 3 * (rect_vec1 / np.linalg.norm(rect_vec1)),
+            -rect_vec2 - 3 * (rect_vec2 / np.linalg.norm(rect_vec2)),
+            fill_color,
         ),
     ]
 
@@ -61,7 +69,14 @@ class Cube(Renderable):
                 vertices[group[1]] - vertices[group[0]],
                 vertices[group[2]] - vertices[group[0]],
             )
-            self.triangles.extend(convertRectangleToTriangles(origin, vec1, vec2, col))
+            self.triangles.extend(
+                convertRectangleToTriangles(
+                    origin,
+                    vec1,
+                    vec2,
+                    col,
+                )
+            )
 
     def get_triangles(self) -> List[Triangle3D]:
         return self.triangles
