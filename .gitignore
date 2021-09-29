@@ -1,0 +1,9 @@
+!.gitignore
+!*.py
+!*.md
+*.pyc
+
+# Directories
+build/
+dist/
+rubiksCube.egg-info
