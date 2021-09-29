@@ -3,7 +3,7 @@ import numpy as np
 import time
 from objects3D import Cube, Pyramid
 from render import Scene
-from functions import *
+from functions import Sphere
 from PIL import Image
 
 if __name__ == "__main__":

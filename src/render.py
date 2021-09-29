@@ -1,5 +1,5 @@
 import numpy as np
-from functions import getQuadrant
+from functions import RotationMatrix3D, getQuadrant
 import objects3D as o3
 from typing import List, Tuple
 from numba import njit, prange
@@ -381,6 +381,24 @@ class Scene:
             print(
                 'Invalid algorithm for rendering, options are: "projection" and "raycast"'
             )
+
+    def rotateObjects(
+        self, objects_ids: List[int], axis: int, rotation_angle: float
+    ) -> None:
+        """rotates objects given by their id around the axis (0, 1 or 2) with the given rotation angle"""
+        rot = RotationMatrix3D()
+        for obj_id in objects_ids:
+            elems = self.objects[obj_id]
+            for elem in elems:
+                self.triangle_origins[elem] = rot(
+                    self.triangle_origins[elem], axis, rotation_angle
+                )
+                self.triangle_vec1s[elem] = rot(
+                    self.triangle_vec1s[elem], axis, rotation_angle
+                )
+                self.triangle_vec2s[elem] = rot(
+                    self.triangle_vec2s[elem], axis, rotation_angle
+                )
 
 
 if __name__ == "__main__":

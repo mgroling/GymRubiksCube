@@ -1,3 +1,4 @@
+from logging import error
 import numpy as np
 
 
@@ -37,6 +38,46 @@ class Sphere:
                 self.radius * np.cos(theta),
             ]
         )
+
+
+class RotationMatrix3D:
+    def __init__(self) -> None:
+        pass
+
+    def __call__(
+        self, object_to_rotate: np.ndarray, axis: int, angle: float
+    ) -> np.ndarray:
+        assert (
+            len(object_to_rotate.shape) == 2 and object_to_rotate.shape[0] == 3
+        ), "Invalid shape of object to rotate, must be of shape (3, n)"
+        if axis == 0:
+            rotation_matrix = np.array(
+                [
+                    [1, 0, 0],
+                    [0, np.cos(angle), -np.sin(angle)],
+                    [0, np.sin(angle), np.cos(angle)],
+                ]
+            )
+        elif axis == 1:
+            rotation_matrix = np.array(
+                [
+                    [np.cos(angle), 0, np.sin(angle)],
+                    [0, 1, 0],
+                    [-np.sin(angle), 0, np.cos(angle)],
+                ]
+            )
+        elif axis == 2:
+            rotation_matrix = np.array(
+                [
+                    [np.cos(angle), -np.sin(angle), 0],
+                    [np.sin(angle), np.cos(angle), 0],
+                    [0, 0, 1],
+                ]
+            )
+        else:
+            raise error("Invalid argument for axis, options are 0, 1, 2")
+
+        return np.matmul(rotation_matrix, object_to_rotate)
 
 
 def getQuadrant(x: float, y: float):
