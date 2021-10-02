@@ -388,8 +388,8 @@ class Scene:
         """rotates objects given by their id around the axis (0, 1 or 2) with the given rotation angle"""
         rot = RotationMatrix3D()
         for obj_id in objects_ids:
-            elems = self.objects[obj_id]
-            for elem in elems:
+            triangles = self.objects[obj_id]
+            for elem in triangles:
                 self.triangle_origins[elem] = rot(
                     self.triangle_origins[elem], axis, rotation_angle
                 )

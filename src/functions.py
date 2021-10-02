@@ -47,9 +47,6 @@ class RotationMatrix3D:
     def __call__(
         self, object_to_rotate: np.ndarray, axis: int, angle: float
     ) -> np.ndarray:
-        assert (
-            len(object_to_rotate.shape) == 2 and object_to_rotate.shape[0] == 3
-        ), "Invalid shape of object to rotate, must be of shape (3, n)"
         if axis == 0:
             rotation_matrix = np.array(
                 [

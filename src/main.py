@@ -46,8 +46,6 @@ if __name__ == "__main__":
     # objects_to_render = [Cube(np.array([0, 0, 0]), 100, colors)]
 
     scene = Scene(WIDTH, HEIGHT, objects_to_render, 400, (50, 50, 50))
-
-    pygame.display.set_caption("Rubik's Cube")
     sphere = Sphere(800)
     look_point = np.array([0, 0, 0])
 
@@ -57,6 +55,7 @@ if __name__ == "__main__":
     time_passed = None
     pygame.init()
     pygame.font.init()
+    pygame.display.set_caption("Rubik's Cube")
     dis = pygame.display.set_mode((2 * WIDTH, 2 * HEIGHT))
     myFont = pygame.font.SysFont("Comic Sans MS", 30)
     while not over:
