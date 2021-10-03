@@ -25,6 +25,7 @@ class RubicksCubeEnv(gym.Env):
         self.cap_fps = 10
 
         # TODO: define action and observation space
+        self.action_space = gym.spaces.Discrete(18)
         self.reset()
 
     def reset(self) -> np.ndarray:
@@ -181,14 +182,6 @@ class RubicksCubeEnv(gym.Env):
 
 if __name__ == "__main__":
     env = RubicksCubeEnv()
-
-    # env.render()
-    # env.step(0)
-    # env.render()
-    # env.step(8)
-    # env.render()
-    # env.step(0)
-    # print(env.structure)
 
     i = 0
     while True:
