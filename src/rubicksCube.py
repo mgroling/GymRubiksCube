@@ -38,8 +38,8 @@ class RubicksCubeEnv(gym.Env):
         # NOT AS GOOD; BETTER USE THIS: VECTOR REPRESENTATION (page 4)
         # https://dl.acm.org/doi/pdf/10.1145/800058.801107?casa_token=Qv5syAkQaZAAAAAA:JmbMhpHxjpeC8Oijx1_au6y-nNxiTfh9lfS6B06kUZQowLNixqXEqTxgNwOcKeTwP-oswhlvwH8
         if self.__setup_render:
-            axis = action // 4
-            index = action % 4 // 2 * 2
+            axis = action // 6
+            index = action % 6 // 2
             # rotate either counter-clockwise or clockwise (if action % 2 == 0 -> counter-clockwise, else clockwise)
             flip_axis = action % 2
             step_rot = 5 if action % 2 == 0 else -5
@@ -193,6 +193,6 @@ if __name__ == "__main__":
     i = 0
     while True:
         env.render()
-        env.step(np.random.randint(12))
+        env.step(np.random.randint(18))
         # env.step(i)
-        i = (i + 3) % 12
+        i = (i + 1) % 18
