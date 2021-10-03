@@ -385,7 +385,7 @@ class Scene:
     def rotateObjects(
         self, objects_ids: List[int], axis: int, rotation_angle: float
     ) -> None:
-        """rotates objects given by their id around the axis (0, 1 or 2) with the given rotation angle"""
+        """rotates objects given by their id around the axis (0, 1 or 2) with the given rotation angle (around the coordinate center)"""
         rot = RotationMatrix3D()
         for obj_id in objects_ids:
             triangles = self.objects[obj_id]
@@ -399,6 +399,33 @@ class Scene:
                 self.triangle_vec2s[elem] = rot(
                     self.triangle_vec2s[elem], axis, rotation_angle
                 )
+
+    def _getObjectsCenters(self):
+        """for debugging"""
+        points = [[] for i in range(len(self.objects))]
+        for key, value in self.objects.items():
+            for ids in value:
+                points[key].append(self.triangle_origins[ids])
+                points[key].append(
+                    self.triangle_origins[ids] + self.triangle_vec1s[ids]
+                )
+                points[key].append(
+                    self.triangle_origins[ids] + self.triangle_vec2s[ids]
+                )
+            points[key] = np.mean(points[key], axis=0)
+
+        out = np.empty((3, 3, 3))
+        arrZY = [100, 0, -100]
+        arrZX = [-100, 0, 100]
+        for i, elem in enumerate(points):
+            index1, index2, index3 = (
+                arrZY.index(np.round(elem[2])),
+                arrZY.index(np.round(elem[1])),
+                arrZX.index(np.round(elem[0])),
+            )
+            out[index1, index2, index3] = i
+
+        return out
 
 
 if __name__ == "__main__":

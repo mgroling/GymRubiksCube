@@ -34,12 +34,13 @@ class RubicksCubeEnv(gym.Env):
         # 6 7 8
         self.structure = np.arange(27).reshape(3, 3, 3)
 
-    def step(self, action) -> np.ndarray:
+    def step(self, action: int) -> np.ndarray:
         # NOT AS GOOD; BETTER USE THIS: VECTOR REPRESENTATION (page 4)
         # https://dl.acm.org/doi/pdf/10.1145/800058.801107?casa_token=Qv5syAkQaZAAAAAA:JmbMhpHxjpeC8Oijx1_au6y-nNxiTfh9lfS6B06kUZQowLNixqXEqTxgNwOcKeTwP-oswhlvwH8
         if self.__setup_render:
             axis = action // 4
             index = action % 4 // 2 * 2
+            # rotate either counter-clockwise or clockwise (if action % 2 == 0 -> counter-clockwise, else clockwise)
             flip_axis = action % 2
             step_rot = 5 if action % 2 == 0 else -5
 
@@ -64,11 +65,11 @@ class RubicksCubeEnv(gym.Env):
                 self.structure[index] = np.flip(self.structure[index].T, axis=flip_axis)
             elif axis == 1:
                 self.structure[:, index] = np.flip(
-                    self.structure[:, index].T, axis=flip_axis
+                    self.structure[:, index].T, axis=1 - flip_axis
                 )
             else:
                 self.structure[:, :, index] = np.flip(
-                    self.structure[:, :, index].T, axis=flip_axis
+                    self.structure[:, :, index].T, axis=1 - flip_axis
                 )
 
     def _setup_render(self) -> None:
@@ -88,7 +89,7 @@ class RubicksCubeEnv(gym.Env):
         for z in [100, 0, -100]:
             for y in [100, 0, -100]:
                 for x in [-100, 0, 100]:
-                    col = [(0, 0, 0) for i in range(6)]
+                    col = [(0, 0, 0) for _ in range(6)]
                     if x < 0:
                         col[2] = colors[2]
                     elif x > 0:
@@ -181,12 +182,17 @@ class RubicksCubeEnv(gym.Env):
 if __name__ == "__main__":
     env = RubicksCubeEnv()
 
-    # env.step(4)
-    # env.step(5)
+    # env.render()
+    # env.step(0)
+    # env.render()
+    # env.step(8)
+    # env.render()
+    # env.step(0)
     # print(env.structure)
 
     i = 0
     while True:
         env.render()
-        env.step(i)
-        i = (i + 1) % 12
+        env.step(np.random.randint(12))
+        # env.step(i)
+        i = (i + 3) % 12
