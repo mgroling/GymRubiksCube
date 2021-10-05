@@ -1,16 +1,21 @@
 import numpy as np
+from numpy.lib import tri
 from functions import RotationMatrix3D, getQuadrant
 import objects3D as o3
 from typing import List, Tuple
 from numba import njit, prange
 
 import pygame
+from PIL import Image
 
 
 @njit
 def rasterizeBottomFlatTriangle(v1, v2, v3, width, height):
     """assumes v1.y < v2.y = v3.y"""
     object_map = np.ones((width, height), dtype=np.float32) * np.inf
+    v1[:2], v2[:2], v3[:2] = np.floor(v1[:2]), np.floor(v2[:2]), np.floor(v3[:2])
+    if v1[1] == v2[1] or v1[1] == v2[1] or v2[0] == v3[0]:
+        return object_map
     slope1 = -(v2[0] - v1[0]) / np.floor(v2[1] - v1[1])
     slope2 = -(v3[0] - v1[0]) / np.floor(v3[1] - v1[1])
 
@@ -58,6 +63,9 @@ def rasterizeBottomFlatTriangle(v1, v2, v3, width, height):
 def rasterizeTopFlatTriangle(v1, v2, v3, width, height):
     """assumes v1.y = v2.y < v3.y"""
     object_map = np.ones((width, height), dtype=np.float32) * np.inf
+    v1[:2], v2[:2], v3[:2] = np.floor(v1[:2]), np.floor(v2[:2]), np.floor(v3[:2])
+    if v3[1] == v1[1] or v3[1] == v2[1] or v1[0] == v2[0]:
+        return object_map
     slope1 = (v3[0] - v1[0]) / np.floor(v3[1] - v1[1])
     slope2 = (v3[0] - v2[0]) / np.floor(v3[1] - v2[1])
 
@@ -339,9 +347,9 @@ class Scene:
         vector_tri = (tri_vertices - canvas_origin[np.newaxis, np.newaxis])[
             :, :, :, np.newaxis
         ]
-        tri_x_y_t = np.matmul(np.linalg.inv(matrix_tri), vector_tri)
+        tri_x_y_t = np.matmul(np.linalg.inv(matrix_tri), vector_tri)[:, :, :, 0]
 
-        return tri_x_y_t[:, :, :, 0]
+        return tri_x_y_t
 
     def _rasterizeTriangles(self, tri_x_y_t: np.ndarray) -> np.ndarray:
         object_map = rasterizeTrianglesHelp(tri_x_y_t, self.width, self.height)
@@ -429,19 +437,63 @@ class Scene:
 
 
 if __name__ == "__main__":
-    object_map = rasterizeTopFlatTriangle(
-        np.array([100, 200, 50]),
-        np.array([200, 200, 50]),
-        np.array([200, 197.9, 50]),
+    a, b, c, d = (
+        np.array([np.random.uniform() * 150 + 75, np.random.uniform() * 150 + 75, 50]),
+        np.array([np.random.uniform() * 150 + 75, np.random.uniform() * 150 + 75, 50]),
+        np.array([np.random.uniform() * 150, np.random.uniform() * 150, 50]),
+        np.array(
+            [np.random.uniform() * 150 + 150, np.random.uniform() * 150 + 150, 50]
+        ),
+    )
+    tempxxx = [
+        [121.72267468, 207.24841915, 320.9242019],
+        [218.75524894, 170.51095479, 373.98048323],
+        [86.51685008, 131.06180927, 437.77782708],
+    ]
+    tempyyy = [
+        [172.95620771, 103.52436674, 487.12754359],
+        [86.51685008, 131.06180927, 437.77782708],
+        [218.75524894, 170.51095479, 373.98048323],
+    ]
+    tempxxx = [[np.floor(elem) for elem in sublist] for sublist in tempxxx]
+    tempyyy = [[np.floor(elem) for elem in sublist] for sublist in tempyyy]
+
+    object_map1 = rasterizeTriangle(
+        np.array(tempxxx),
         300,
         300,
     )
-    object_map = np.where(object_map != np.inf, 255, object_map)
-    object_map[100:200, 290:310] = 255
+    object_map2 = rasterizeTriangle(
+        np.array(tempyyy),
+        300,
+        300,
+    )
+    # object_map1 = rasterizeTriangle(
+    #     np.array([a, b, c]),
+    #     300,
+    #     300,
+    # )
+    # object_map2 = rasterizeTriangle(
+    #     np.array([a, b, d]),
+    #     300,
+    #     300,
+    # )
+    temp = np.append(
+        np.append(object_map1[np.newaxis], object_map2[np.newaxis], axis=0),
+        np.ones(object_map1.shape)[np.newaxis] * 10000,
+        axis=0,
+    )
+    object_map = np.argmin(temp, axis=0)
+    colors = np.array([[255, 0, 0], [0, 0, 255], [0, 255, 0]], dtype=np.uint8)
+
+    object_map = colors[object_map]
 
     pygame.init()
-    dis = pygame.display.set_mode((300, 300))
-    pygame.surfarray.blit_array(dis, object_map)
+    dis = pygame.display.set_mode((600, 600))
+    img = Image.fromarray(object_map, mode="RGB")
+    img = img.resize((600, 600), resample=Image.NEAREST)
+    img = np.array(img)
+    pygame.surfarray.blit_array(dis, img)
     pygame.display.update()
     over = False
     while not over:

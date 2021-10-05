@@ -1,7 +1,7 @@
 import pygame
 import numpy as np
 import time
-from objects3D import Cube, Pyramid
+from objects3D import Cube, Pyramid, TestClass
 from render import Scene
 from functions import Sphere
 from PIL import Image
@@ -16,24 +16,24 @@ if __name__ == "__main__":
         (185, 0, 0),
         (255, 255, 255),
     ]
-    objects_to_render = []
-    for x in [100, 0, -100]:
-        for y in [100, 0, -100]:
-            for z in [100, 0, -100]:
-                col = [(0, 0, 0) for i in range(6)]
-                if x < 0:
-                    col[2] = colors[2]
-                elif x > 0:
-                    col[4] = colors[4]
-                if y < 0:
-                    col[1] = colors[1]
-                elif y > 0:
-                    col[3] = colors[3]
-                if z < 0:
-                    col[0] = colors[0]
-                elif z > 0:
-                    col[5] = colors[5]
-                objects_to_render.append(Cube(np.array([x, y, z]), 93, col))
+    # objects_to_render = []
+    # for x in [100, 0, -100]:
+    #     for y in [100, 0, -100]:
+    #         for z in [100, 0, -100]:
+    #             col = [(0, 0, 0) for i in range(6)]
+    #             if x < 0:
+    #                 col[2] = colors[2]
+    #             elif x > 0:
+    #                 col[4] = colors[4]
+    #             if y < 0:
+    #                 col[1] = colors[1]
+    #             elif y > 0:
+    #                 col[3] = colors[3]
+    #             if z < 0:
+    #                 col[0] = colors[0]
+    #             elif z > 0:
+    #                 col[5] = colors[5]
+    #             objects_to_render.append(Cube(np.array([x, y, z]), 93, col))
     # objects_to_render = [
     #     Pyramid(
     #         np.array([-100, -100, 0]),
@@ -44,6 +44,11 @@ if __name__ == "__main__":
     #     )
     # ]
     # objects_to_render = [Cube(np.array([0, 0, 0]), 100, colors)]
+    objects_to_render = [
+        TestClass(
+            np.array([-100, -100, 0]), np.array([200, 0, 0]), np.array([0, 200, 0])
+        )
+    ]
 
     scene = Scene(WIDTH, HEIGHT, objects_to_render, 400, (50, 50, 50))
     sphere = Sphere(800)

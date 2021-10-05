@@ -26,14 +26,14 @@ def convertRectangleToTriangles(
     return [
         Triangle3D(
             rect_origin,
-            rect_vec1 + 3 * (rect_vec1 / np.linalg.norm(rect_vec1)),
-            rect_vec2 + 3 * (rect_vec2 / np.linalg.norm(rect_vec2)),
+            rect_vec1 + 0 * (rect_vec1 / np.linalg.norm(rect_vec1)),
+            rect_vec2 + 0 * (rect_vec2 / np.linalg.norm(rect_vec2)),
             fill_color,
         ),
         Triangle3D(
             rect_origin + rect_vec1 + rect_vec2,
-            -rect_vec1 - 3 * (rect_vec1 / np.linalg.norm(rect_vec1)),
-            -rect_vec2 - 3 * (rect_vec2 / np.linalg.norm(rect_vec2)),
+            -rect_vec1 - 0 * (rect_vec1 / np.linalg.norm(rect_vec1)),
+            -rect_vec2 - 0 * (rect_vec2 / np.linalg.norm(rect_vec2)),
             fill_color,
         ),
     ]
@@ -114,6 +114,14 @@ class Pyramid(Renderable):
                     color,
                 )
             )
+
+    def get_triangles(self) -> List[Triangle3D]:
+        return self.triangles
+
+
+class TestClass(Renderable):
+    def __init__(self, origin, vec1, vec2) -> None:
+        self.triangles = convertRectangleToTriangles(origin, vec1, vec2, [255, 0, 0])
 
     def get_triangles(self) -> List[Triangle3D]:
         return self.triangles
