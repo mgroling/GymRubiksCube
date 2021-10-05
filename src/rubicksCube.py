@@ -5,7 +5,7 @@ import gym
 import sys
 from objects3D import Cube
 from render import Scene
-from functions import RotationMatrix3D, Sphere
+from functions import Sphere
 from PIL import Image
 
 

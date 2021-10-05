@@ -26,14 +26,14 @@ def convertRectangleToTriangles(
     return [
         Triangle3D(
             rect_origin,
-            rect_vec1 + 0 * (rect_vec1 / np.linalg.norm(rect_vec1)),
-            rect_vec2 + 0 * (rect_vec2 / np.linalg.norm(rect_vec2)),
+            rect_vec1,
+            rect_vec2,
             fill_color,
         ),
         Triangle3D(
             rect_origin + rect_vec1 + rect_vec2,
-            -rect_vec1 - 0 * (rect_vec1 / np.linalg.norm(rect_vec1)),
-            -rect_vec2 - 0 * (rect_vec2 / np.linalg.norm(rect_vec2)),
+            -rect_vec1,
+            -rect_vec2,
             fill_color,
         ),
     ]
