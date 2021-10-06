@@ -9,6 +9,11 @@ from render import Scene
 from functions import Sphere
 
 
+def transformColorVector(current_state, action):
+    if action == 0:
+        pass
+
+
 class RubicksCubeEnv(gym.Env):
     def __init__(self) -> None:
         # variables for rendering
@@ -34,6 +39,9 @@ class RubicksCubeEnv(gym.Env):
         # 3 4 5
         # 6 7 8
         self.structure = np.arange(27).reshape(3, 3, 3)
+        # define a vector representing the color of each side
+        # number from 0-5 are mapped to the colors in the following order white, red, blue, orange, green and yellow
+        self.color_vector = [[j for _ in range(9)] for j in range(6)]
 
     def step(self, action: int) -> np.ndarray:
         # NOT AS GOOD; BETTER USE THIS: VECTOR REPRESENTATION (page 4)
