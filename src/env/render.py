@@ -5,9 +5,6 @@ import objects3D as o3
 from typing import List, Tuple
 from numba import njit, prange
 
-import pygame
-from PIL import Image
-
 
 @njit
 def rasterizeBottomFlatTriangle(v1, v2, v3, width, height):
@@ -231,7 +228,7 @@ class Scene:
 
         return origin, v, w
 
-    # something wrong with this, not sure what (don't really wanna spend time fixing it though)
+    # something wrong with this, not sure what (don't really wanna spend time fixing it though cause it's too slow anyway)
     def _renderRaycast(
         self,
         pov: np.ndarray,

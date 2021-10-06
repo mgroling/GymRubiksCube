@@ -3,10 +3,10 @@ import numpy as np
 import time
 import gym
 import sys
+from PIL import Image
 from objects3D import Cube
 from render import Scene
 from functions import Sphere
-from PIL import Image
 
 
 class RubicksCubeEnv(gym.Env):
