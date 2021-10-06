@@ -1,6 +1,6 @@
 # Rubiks Cube
 
-As the name of the Repository suggests, it is all about the Rubik's Cube. This includes visualisation/rendering of it as well as solving it.
+As the name of the Repository suggests, it is all about the Rubik's Cube. This includes visualisation/rendering of it as well as solving it (by creating a gym environment and using algorithms in there). 
 
 ![RubiksCubeAnimation](/img/rubiksCubeAnimation.gif)
 
