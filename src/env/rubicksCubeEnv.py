@@ -9,9 +9,40 @@ from render import Scene
 from functions import Sphere
 
 
-def transformColorVector(current_state, action):
-    if action == 0:
-        pass
+class TransformeCubeObject:
+    def __init__(self) -> None:
+        # fmt: off
+        self.transformation_permutations = [np.arange(54) for _ in range(18)]
+
+        # action = 0: top-layer counter-clockwise rotation
+        self.transformation_permutations[0][
+            [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 18, 19, 20, 27, 28, 29, 36, 37, 38]
+        ] = [2, 5, 8, 1, 4, 7, 0, 3, 6, 36, 37, 38, 9, 10, 11, 18, 19, 20, 27, 28, 29]
+        # action = 1: top-layer clockwise rotation
+        self.transformation_permutations[1][
+            [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 18, 19, 20, 27, 28, 29, 36, 37, 38]
+        ] = [6, 3, 0, 7, 4, 1, 8, 5, 2, 18, 19, 20, 27, 28, 29, 36, 37, 38, 9, 10, 11]
+        # action = 2: middle-layer vertical counter-clockwise rotation
+        self.transformation_permutations[2][
+            [12, 13, 14, 21, 22, 23, 30, 31, 32, 39, 40, 41]
+        ] = [39, 40, 41, 12, 13, 14, 21, 22, 23, 30, 31, 32]
+        # action = 3: middle-layer vertical clockwise rotation
+        self.transformation_permutations[3][
+            [12, 13, 14, 21, 22, 23, 30, 31, 32, 39, 40, 41]
+        ] = [21, 22, 23, 30, 31, 32, 39, 40, 41, 12, 13, 14]
+        # action = 4: bottom-layer counter-clockwise rotation
+        self.transformation_permutations[4][
+            [45, 46, 47, 48, 49, 50, 51, 52, 53, 15, 16, 17, 24, 25, 26, 33, 34, 35, 42, 43, 44]
+        ] = [47, 50, 53, 46, 49, 52, 45, 48, 51, 42, 43, 44, 15, 16, 17, 24, 25, 26, 33, 34, 35]
+        # action = 5: bottom-layer clockwise rotation
+        self.transformation_permutations[5][
+            [45, 46, 47, 48, 49, 50, 51, 52, 53, 15, 16, 17, 24, 25, 26, 33, 34, 35, 42, 43, 44]
+        ] = [51, 48, 45, 52, 49, 46, 53, 50, 47, 24, 25, 26, 33, 34, 35, 42, 43, 44, 15, 16, 17]
+
+        # fmt: on
+
+    def __call__(self, current_state: np.ndarray, action: int) -> np.ndarray:
+        return np.array(current_state)[self.transformation_permutations[action]]
 
 
 class RubicksCubeEnv(gym.Env):
@@ -23,8 +54,8 @@ class RubicksCubeEnv(gym.Env):
         self._dis = None
         self._font = None
         self._look_point = None
-        self._screen_width = None
-        self._screen_height = None
+        self._screen_width = 600
+        self._screen_height = 600
         self._delta_theta, self._delta_phi = None, None
 
         self.cap_fps = 10
@@ -34,14 +65,16 @@ class RubicksCubeEnv(gym.Env):
         self.reset()
 
     def reset(self) -> np.ndarray:
-        # structure: axis = 0 is top layer, = 1 is middle layer, = 2 is top layer
+        # structure: row = 0 is top layer, row = 1 is middle layer, row = 2 is top layer
         # 0 1 2
         # 3 4 5
         # 6 7 8
         self.structure = np.arange(27).reshape(3, 3, 3)
         # define a vector representing the color of each side
         # number from 0-5 are mapped to the colors in the following order white, red, blue, orange, green and yellow
-        self.color_vector = [[j for _ in range(9)] for j in range(6)]
+        self.color_vector = np.array(
+            [[j for _ in range(9)] for j in range(6)]
+        ).flatten()
 
     def step(self, action: int) -> np.ndarray:
         # NOT AS GOOD; BETTER USE THIS: VECTOR REPRESENTATION (page 4)
@@ -82,7 +115,6 @@ class RubicksCubeEnv(gym.Env):
                 )
 
     def _setup_render(self) -> None:
-        self._screen_width, self._screen_height = 600, 600
         # define scene for rendering
         # TODO: use current state of cube for rendering
         self.reset()
@@ -187,13 +219,49 @@ class RubicksCubeEnv(gym.Env):
         if wait > 0:
             time.sleep(wait)
 
+    @property
+    def screen_width(self) -> int:
+        return self._screen_width
+
+    @screen_width.setter
+    def screen_width(self, value: int):
+        assert (
+            type(value) == int and value > 1
+        ), "screen width must be an integer and bigger than one"
+        self._screen_width = value
+        self.__setup_render = False
+
+    @property
+    def screen_height(self) -> int:
+        return self._screen_height
+
+    @screen_height.setter
+    def screen_height(self, value: int):
+        assert (
+            type(value) == int and value > 1
+        ), "screen height must be an integer and bigger than one"
+        self._screen_height = value
+        self.__setup_render = False
+
 
 if __name__ == "__main__":
     env = RubicksCubeEnv()
 
-    i = 0
-    while True:
-        env.render()
-        env.step(np.random.randint(18))
-        # env.step(i)
-        i = (i + 1) % 18
+    # temp = np.array([[0, 1, 2], [3, 4, 5], [6, 7, 8]])
+    # for i in range(6):
+    #     print(temp + i * 9)
+
+    temp = np.array([[0, 1, 2], [3, 4, 5], [6, 7, 8]])
+    print(np.flip(temp.T + 45, axis=1))
+
+    # transformer = TransformeCubeObject()
+    # color_vector = np.array([[j for _ in range(9)] for j in range(6)]).flatten()
+    # print(color_vector)
+    # print(transformer(transformer(color_vector, 3), 2))
+
+    # i = 0
+    # while True:
+    #     env.render()
+    #     # env.step(np.random.randint(18))
+    #     env.step(i)
+    #     i = (i + 1) % 18
