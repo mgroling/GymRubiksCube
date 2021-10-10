@@ -9,7 +9,7 @@ from render import Scene
 from functions import Sphere
 
 
-class TransformeCubeObject:
+class TransformCubeObject:
     def __init__(self) -> None:
         # fmt: off
         self.transformation_permutations = [np.arange(54) for _ in range(18)]
@@ -90,7 +90,7 @@ class TransformeCubeObject:
         # fmt: on
 
     def __call__(self, current_state: np.ndarray, action: int) -> np.ndarray:
-        return np.array(current_state)[self.transformation_permutations[action]]
+        return current_state[self.transformation_permutations[action]]
 
 
 class RubicksCubeEnv(gym.Env):
@@ -302,13 +302,21 @@ if __name__ == "__main__":
     # temp = np.array([[0, 1, 2], [3, 4, 5], [6, 7, 8]])
     # print(np.flip(temp.T + 9, axis=1))
 
-    transformer = TransformeCubeObject()
-    color_vector = np.array([[j for _ in range(9)] for j in range(6)]).flatten()
-    pair = 16, 17
-    temp = transformer(transformer(color_vector, pair[0]), pair[1])
-    print(np.array(temp == sorted(temp)).all())
-    temp = transformer(transformer(color_vector, pair[1]), pair[0])
-    print(np.array(temp == sorted(temp)).all())
+    transformer = TransformCubeObject()
+
+    for _ in range(18):
+        color_vector = np.array([[j for _ in range(9)] for j in range(6)]).flatten()
+        color_vector = transformer(color_vector, _)
+        color_vector = transformer(color_vector, _)
+        color_vector = transformer(color_vector, _)
+        color_vector = transformer(color_vector, _)
+        print(np.array(color_vector == sorted(color_vector)).all())
+
+    # pair = 16, 17
+    # temp = transformer(transformer(color_vector, pair[0]), pair[1])
+    # print(np.array(temp == sorted(temp)).all())
+    # temp = transformer(transformer(color_vector, pair[1]), pair[0])
+    # print(np.array(temp == sorted(temp)).all())
 
     # i = 0
     # while True:

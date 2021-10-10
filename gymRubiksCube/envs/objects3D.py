@@ -117,11 +117,3 @@ class Pyramid(Renderable):
 
     def get_triangles(self) -> List[Triangle3D]:
         return self.triangles
-
-
-class TestClass(Renderable):
-    def __init__(self, origin, vec1, vec2) -> None:
-        self.triangles = convertRectangleToTriangles(origin, vec1, vec2, [255, 0, 0])
-
-    def get_triangles(self) -> List[Triangle3D]:
-        return self.triangles
