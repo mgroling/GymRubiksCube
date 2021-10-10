@@ -1,5 +1,4 @@
 import numpy as np
-from numpy.lib import tri
 from functions import RotationMatrix3D, getQuadrant
 import objects3D as o3
 from typing import List, Tuple

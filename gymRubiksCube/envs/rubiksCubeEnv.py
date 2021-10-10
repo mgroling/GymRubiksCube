@@ -223,22 +223,30 @@ class RubicksCubeEnv(gym.Env):
                 sys.exit()
             # key pressed
             elif event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_UP:
+                if event.key == pygame.K_UP or event.key == pygame.K_w:
                     self._delta_theta = -3
-                elif event.key == pygame.K_DOWN:
+                elif event.key == pygame.K_DOWN or event.key == pygame.K_s:
                     self._delta_theta = 3
-                elif event.key == pygame.K_RIGHT:
+                elif event.key == pygame.K_RIGHT or event.key == pygame.K_d:
                     self._delta_phi = 3
-                elif event.key == pygame.K_LEFT:
+                elif event.key == pygame.K_LEFT or event.key == pygame.K_a:
                     self._delta_phi = -3
             # key released
             elif event.type == pygame.KEYUP:
-                if (event.key == pygame.K_UP and self._delta_theta < 0) or (
-                    event.key == pygame.K_DOWN and self._delta_theta > 0
+                if (
+                    (event.key == pygame.K_UP or event.key == pygame.K_w)
+                    and self._delta_theta < 0
+                ) or (
+                    (event.key == pygame.K_DOWN or event.key == pygame.K_s)
+                    and self._delta_theta > 0
                 ):
                     self._delta_theta = 0
-                elif (event.key == pygame.K_RIGHT and self._delta_phi > 0) or (
-                    event.key == pygame.K_LEFT and self._delta_phi < 0
+                elif (
+                    (event.key == pygame.K_RIGHT or event.key == pygame.K_d)
+                    and self._delta_phi > 0
+                ) or (
+                    (event.key == pygame.K_LEFT or event.key == pygame.K_a)
+                    and self._delta_phi < 0
                 ):
                     self._delta_phi = 0
             elif event.type == pygame.MOUSEWHEEL:
@@ -295,32 +303,9 @@ class RubicksCubeEnv(gym.Env):
 if __name__ == "__main__":
     env = RubicksCubeEnv()
 
-    # temp = np.array([[0, 1, 2], [3, 4, 5], [6, 7, 8]])
-    # for i in range(6):
-    #     print(temp + i * 9)
-
-    # temp = np.array([[0, 1, 2], [3, 4, 5], [6, 7, 8]])
-    # print(np.flip(temp.T + 9, axis=1))
-
-    transformer = TransformCubeObject()
-
-    for _ in range(18):
-        color_vector = np.array([[j for _ in range(9)] for j in range(6)]).flatten()
-        color_vector = transformer(color_vector, _)
-        color_vector = transformer(color_vector, _)
-        color_vector = transformer(color_vector, _)
-        color_vector = transformer(color_vector, _)
-        print(np.array(color_vector == sorted(color_vector)).all())
-
-    # pair = 16, 17
-    # temp = transformer(transformer(color_vector, pair[0]), pair[1])
-    # print(np.array(temp == sorted(temp)).all())
-    # temp = transformer(transformer(color_vector, pair[1]), pair[0])
-    # print(np.array(temp == sorted(temp)).all())
-
-    # i = 0
-    # while True:
-    #     env.render()
-    #     # env.step(np.random.randint(18))
-    #     env.step(12)
-    #     i = (i + 1) % 18
+    i = 0
+    while True:
+        env.render()
+        env.step(np.random.randint(18))
+        # env.step(12)
+        i = (i + 1) % 18
