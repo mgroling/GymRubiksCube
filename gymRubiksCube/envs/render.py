@@ -28,9 +28,7 @@ def rasterizeBottomFlatTriangle(v1, v2, v3, width, height):
     curX2 = v1[0]
 
     for i in range(int(v1[1]), int(v2[1]) - 1, -1):
-        curX1_int, curX2_int = int(curX1), int(
-            curX2
-        )  # clip between min x and max x of v1, v2
+        curX1_int, curX2_int = int(curX1), int(curX2)
         temp = (
             v1[2]
             + np.arange(
@@ -80,9 +78,7 @@ def rasterizeTopFlatTriangle(v1, v2, v3, width, height):
     curX2 = v3[0]
 
     for i in range(int(v3[1]), int(v1[1]) + 1):
-        curX1_int, curX2_int = int(curX1), int(
-            curX2
-        )  # clip between min x and max x of v1, v2
+        curX1_int, curX2_int = int(curX1), int(curX2)
         temp = (
             v3[2]
             + np.arange(
@@ -110,7 +106,6 @@ def rasterizeTopFlatTriangle(v1, v2, v3, width, height):
 
 @njit
 def rasterizeTriangle(triangle_x_y_t, width, height):
-    # https://numpy.org/doc/stable/reference/generated/numpy.sort.html
     triangle_x_y_t = sorted(triangle_x_y_t, key=lambda x: x[1])
 
     v1, v2, v3 = triangle_x_y_t[0], triangle_x_y_t[1], triangle_x_y_t[2]
