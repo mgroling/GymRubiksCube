@@ -22,11 +22,11 @@ class TransformeCubeObject:
         self.transformation_permutations[1][
             [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 18, 19, 20, 27, 28, 29, 36, 37, 38]
         ] = [6, 3, 0, 7, 4, 1, 8, 5, 2, 18, 19, 20, 27, 28, 29, 36, 37, 38, 9, 10, 11]
-        # action = 2: middle-layer vertical counter-clockwise rotation
+        # action = 2: middle-layer horizontal counter-clockwise rotation
         self.transformation_permutations[2][
             [12, 13, 14, 21, 22, 23, 30, 31, 32, 39, 40, 41]
         ] = [39, 40, 41, 12, 13, 14, 21, 22, 23, 30, 31, 32]
-        # action = 3: middle-layer vertical clockwise rotation
+        # action = 3: middle-layer horizontal clockwise rotation
         self.transformation_permutations[3][
             [12, 13, 14, 21, 22, 23, 30, 31, 32, 39, 40, 41]
         ] = [21, 22, 23, 30, 31, 32, 39, 40, 41, 12, 13, 14]
@@ -38,6 +38,54 @@ class TransformeCubeObject:
         self.transformation_permutations[5][
             [45, 46, 47, 48, 49, 50, 51, 52, 53, 15, 16, 17, 24, 25, 26, 33, 34, 35, 42, 43, 44]
         ] = [51, 48, 45, 52, 49, 46, 53, 50, 47, 24, 25, 26, 33, 34, 35, 42, 43, 44, 15, 16, 17]
+        # action = 6: right-layer downwards rotation
+        self.transformation_permutations[6][
+            [18, 19, 20, 21, 22, 23, 24, 25, 26, 2, 5, 8, 11, 14, 17, 27, 30, 33, 47, 50, 53]
+        ] = [20, 23, 26, 19, 22, 25, 18, 21, 24, 33, 30, 27, 2, 5, 8, 47, 50, 53, 17, 14, 11]
+        # action = 7: right-layer upwards rotation
+        self.transformation_permutations[7][
+            [18, 19, 20, 21, 22, 23, 24, 25, 26, 2, 5, 8, 11, 14, 17, 27, 30, 33, 47, 50, 53]
+        ] = [24, 21, 18, 25, 22, 19, 26, 23, 20, 11, 14, 17, 53, 50, 47, 8, 5, 2, 27, 30, 33]
+        # action = 8: middle-layer vertical downwards rotation
+        self.transformation_permutations[8][
+            [1, 4, 7, 10, 13, 16, 28, 31, 34, 46, 49, 52]
+        ] = [34, 31, 28, 1, 4, 7, 46, 49, 52, 16, 13, 10]
+        # action = 9: middle-layer vertical upwards rotation
+        self.transformation_permutations[9][
+            [1, 4, 7, 10, 13, 16, 28, 31, 34, 46, 49, 52]
+        ] = [10, 13, 16, 52, 49, 46, 7, 4, 1, 28, 31, 34]
+        # action = 10: left-layer downwards rotation
+        self.transformation_permutations[10][
+            [36, 37, 38, 39, 40, 41, 42, 43, 44, 0, 3, 6, 9, 12, 15, 29, 32, 35, 45, 48, 51]
+        ] = [42, 39, 36, 43, 40, 37, 44, 41, 38, 35, 32, 29, 0, 3, 6, 45, 48, 51, 15, 12, 9]
+        # action = 11: left-layer upwards rotation
+        self.transformation_permutations[11][
+            [36, 37, 38, 39, 40, 41, 42, 43, 44, 0, 3, 6, 9, 12, 15, 29, 32, 35, 45, 48, 51]
+        ] = [38, 41, 44, 37, 40, 43, 36, 39, 42, 9, 12, 15, 51, 48, 45, 6, 3, 0, 29, 32, 35]
+        # action = 12: back-layer counter-clockwise rotation
+        self.transformation_permutations[12][
+            [27, 28, 29, 30, 31, 32, 33, 34, 35, 0, 1, 2, 20, 23, 26, 36, 39, 42, 45, 46, 47]
+        ] = [33, 30, 27, 34, 31, 28, 35, 32, 29, 20, 23, 26, 47, 46, 45, 2, 1, 0, 36, 39, 42]
+        # action = 13: back-layer clockwise rotation
+        self.transformation_permutations[13][
+            [27, 28, 29, 30, 31, 32, 33, 34, 35, 0, 1, 2, 20, 23, 26, 36, 39, 42, 45, 46, 47]
+        ] = [29, 32, 35, 28, 31, 34, 27, 30, 33, 42, 39, 36, 0, 1, 2, 45, 46, 47, 26, 23, 20]
+        # action = 14: middle-layer counter-clockwise rotation
+        self.transformation_permutations[14][
+            [3, 4, 5, 19, 22, 25, 37, 40, 43, 48, 49, 50]
+        ] = [19, 22, 25, 50, 49, 48, 5, 4, 3, 37, 40, 43]
+        # action = 15: middle-layer clockwise rotation
+        self.transformation_permutations[15][
+            [3, 4, 5, 19, 22, 25, 37, 40, 43, 48, 49, 50]
+        ] = [43, 40, 37, 3, 4, 5, 48, 49, 50, 25, 22, 19]
+        # action = 16: front-layer counter-clockwise rotation
+        self.transformation_permutations[16][
+            [9, 10, 11, 12, 13, 14, 15, 16, 17, 6, 7, 8, 18, 21, 24, 38, 41, 44, 51, 52, 53]
+        ] = [11, 14, 17, 10, 13, 16, 9, 12, 15, 18, 21, 24, 53, 52, 51, 8, 7, 6, 38, 41, 44]
+        # action = 17: front-layer clockwise rotation
+        self.transformation_permutations[17][
+            [9, 10, 11, 12, 13, 14, 15, 16, 17, 6, 7, 8, 18, 21, 24, 38, 41, 44, 51, 52, 53]
+        ] = [15, 12, 9, 16, 13, 10, 17, 14, 11, 44, 41, 38, 6, 7, 8, 51, 52, 53, 24, 21, 18]
 
         # fmt: on
 
@@ -251,17 +299,20 @@ if __name__ == "__main__":
     # for i in range(6):
     #     print(temp + i * 9)
 
-    temp = np.array([[0, 1, 2], [3, 4, 5], [6, 7, 8]])
-    print(np.flip(temp.T + 45, axis=1))
+    # temp = np.array([[0, 1, 2], [3, 4, 5], [6, 7, 8]])
+    # print(np.flip(temp.T + 9, axis=1))
 
-    # transformer = TransformeCubeObject()
-    # color_vector = np.array([[j for _ in range(9)] for j in range(6)]).flatten()
-    # print(color_vector)
-    # print(transformer(transformer(color_vector, 3), 2))
+    transformer = TransformeCubeObject()
+    color_vector = np.array([[j for _ in range(9)] for j in range(6)]).flatten()
+    pair = 16, 17
+    temp = transformer(transformer(color_vector, pair[0]), pair[1])
+    print(np.array(temp == sorted(temp)).all())
+    temp = transformer(transformer(color_vector, pair[1]), pair[0])
+    print(np.array(temp == sorted(temp)).all())
 
     # i = 0
     # while True:
     #     env.render()
     #     # env.step(np.random.randint(18))
-    #     env.step(i)
+    #     env.step(12)
     #     i = (i + 1) % 18
