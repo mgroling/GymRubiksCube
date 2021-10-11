@@ -4,11 +4,19 @@ This is an [OpenAi gym environment](https://gym.openai.com/) for the popular com
 
 ![RubiksCubeAnimation](/img/rubiksCubeAnimation.gif)
 
+## Installation and Usage
+
+  git clone https://github.com/marc131183/GymRubiksCube.git
+  cd GymRubiksCube
+  pip3 install -e .
+  
+Example Usage can be found [here](https://github.com/marc131183/GymRubiksCube/blob/main/experiments/example.py).
+
 ## Action and Observation Space
 
 Action space: Discrete(18)
 
-Observation space: (54,) np.ndarray with values 0 to 5 representing the colors
+Observation space: (54,) np.ndarray with values of 0 to 5 representing the colors
 
 ## Content
 
