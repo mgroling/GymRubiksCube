@@ -4,9 +4,10 @@ import time
 import gym
 import sys
 from PIL import Image
-from objects3D import Cube
-from render import Scene
-from functions import Sphere
+
+from gym_rubiks_cube.envs.objects3D import Cube
+from gym_rubiks_cube.envs.render import Scene
+from gym_rubiks_cube.envs.functions import Sphere
 
 
 class TransformCubeObject:
@@ -93,8 +94,15 @@ class TransformCubeObject:
         return current_state[self.transformation_permutations[action]]
 
 
-class RubicksCubeEnv(gym.Env):
+class RubiksCubeEnv(gym.Env):
     def __init__(self) -> None:
+        # internal variables
+        self.color_vector = None
+        self.transform = None
+        self.structure = None
+        self.scramble_params = None  # number of random steps to do when scrambling
+        self._done = False
+
         # variables for rendering
         self.__setup_render = False
         self._scene = None
@@ -108,25 +116,44 @@ class RubicksCubeEnv(gym.Env):
 
         self.cap_fps = 10
 
-        # TODO: define action and observation space
         self.action_space = gym.spaces.Discrete(18)
-        self.reset()
+        self.observation_space = gym.spaces.Box(
+            low=0, high=5, shape=(54,), dtype=np.int64
+        )
+
+    def isSolved(self) -> bool:
+        return (self.color_vector == sorted(self.color_vector)).all()
+
+    def scramble(self) -> None:
+        for _ in range(self.scramble_params if self.scramble_params != None else 50):
+            self.color_vector = self.transform(self.color_vector, np.random.randint(18))
+
+        # check that cube is not in a solved state
+        if self.scramble_params != 0 and self.isSolved():
+            self.scramble()
 
     def reset(self) -> np.ndarray:
-        # structure: row = 0 is top layer, row = 1 is middle layer, row = 2 is top layer
-        # 0 1 2
-        # 3 4 5
-        # 6 7 8
-        self.structure = np.arange(27).reshape(3, 3, 3)
         # define a vector representing the color of each side
         # number from 0-5 are mapped to the colors in the following order white, red, blue, orange, green and yellow
         self.color_vector = np.array(
             [[j for _ in range(9)] for j in range(6)]
         ).flatten()
+        self.transform = TransformCubeObject()
+
+        self.scramble()
+
+        return self.color_vector
 
     def step(self, action: int) -> np.ndarray:
-        # NOT AS GOOD; BETTER USE THIS: VECTOR REPRESENTATION (page 4)
-        # https://dl.acm.org/doi/pdf/10.1145/800058.801107?casa_token=Qv5syAkQaZAAAAAA:JmbMhpHxjpeC8Oijx1_au6y-nNxiTfh9lfS6B06kUZQowLNixqXEqTxgNwOcKeTwP-oswhlvwH8
+        if self._done:
+            gym.logger.warn(
+                "You are calling 'step()' even though this "
+                "environment has already returned done = True. You "
+                "should always call 'reset()' once you receive 'done = "
+                "True' -- any further steps are undefined behavior."
+            )
+
+        self.color_vector = self.transform(self.color_vector, action)
         if self.__setup_render:
             axis = action // 6
             index = action % 6 // 2
@@ -162,35 +189,51 @@ class RubicksCubeEnv(gym.Env):
                     self.structure[:, :, index].T, axis=1 - flip_axis
                 )
 
+        if self.isSolved():
+            self._done = True
+
+        return self.color_vector, 1 if self._done else 0, self._done, {}
+
     def _setup_render(self) -> None:
+        # structure: row = 0 is top layer, row = 1 is middle layer, row = 2 is top layer
+        # then on each row:
+        # y is the third index
+        # y = 2: 0 1 2
+        # y = 1: 3 4 5
+        # y = 0: 6 7 8
+        self.structure = np.arange(27).reshape(3, 3, 3)
         # define scene for rendering
-        # TODO: use current state of cube for rendering
-        self.reset()
         colors = [
-            (255, 213, 0),
-            (0, 155, 72),
-            (200, 100, 0),
-            (0, 69, 173),
-            (185, 0, 0),
-            (255, 255, 255),
+            (255, 255, 255),  # white
+            (185, 0, 0),  # red
+            (0, 69, 173),  # blue
+            (255, 88, 0),  # orange
+            (0, 155, 72),  # green
+            (255, 213, 0),  # yellow
         ]
         objects_to_render = []
-        for z in [100, 0, -100]:
-            for y in [100, 0, -100]:
-                for x in [-100, 0, 100]:
+        for i, z in enumerate([100, 0, -100]):
+            for j, y in enumerate([100, 0, -100]):
+                for k, x in enumerate([-100, 0, 100]):
                     col = [(0, 0, 0) for _ in range(6)]
                     if x < 0:
-                        col[2] = colors[2]
-                    elif x > 0:
-                        col[4] = colors[4]
+                        index = 36 + j + i * 3  # left side of cube
+                        col[4] = colors[self.color_vector[index]]
+                    if x > 0:
+                        index = 18 + (2 - j) + i * 3  # right side of cube
+                        col[2] = colors[self.color_vector[index]]
                     if y < 0:
-                        col[1] = colors[1]
-                    elif y > 0:
-                        col[3] = colors[3]
+                        index = 9 + k + i * 3  # front side of cube
+                        col[1] = colors[self.color_vector[index]]
+                    if y > 0:
+                        index = 27 + (2 - k) + i * 3  # back side of cube
+                        col[3] = colors[self.color_vector[index]]
+                    if z > 0:
+                        index = k + j * 3  # top side of cube
+                        col[0] = colors[self.color_vector[index]]
                     if z < 0:
-                        col[0] = colors[0]
-                    elif z > 0:
-                        col[5] = colors[5]
+                        index = 45 + k + j * 3  # bottom side of cube
+                        col[5] = colors[self.color_vector[index]]
                     objects_to_render.append(Cube(np.array([x, y, z]), 93, col))
 
         self._scene = Scene(
@@ -275,6 +318,17 @@ class RubicksCubeEnv(gym.Env):
         if wait > 0:
             time.sleep(wait)
 
+    def close(self) -> None:
+        if self.__setup_render:
+            pygame.quit()
+            self.__setup_render = False
+            self._scene = None
+            self._sphere = None
+            self._dis = None
+            self._font = None
+            self._look_point = None
+            self._delta_theta, self._delta_phi = None, None
+
     @property
     def screen_width(self) -> int:
         return self._screen_width
@@ -282,8 +336,8 @@ class RubicksCubeEnv(gym.Env):
     @screen_width.setter
     def screen_width(self, value: int):
         assert (
-            type(value) == int and value > 1
-        ), "screen width must be an integer and bigger than one"
+            type(value) == int and value > 1 and value % 2 == 0
+        ), "screen width must be an integer, bigger than one and divisible by 2"
         self._screen_width = value
         self.__setup_render = False
 
@@ -294,18 +348,7 @@ class RubicksCubeEnv(gym.Env):
     @screen_height.setter
     def screen_height(self, value: int):
         assert (
-            type(value) == int and value > 1
-        ), "screen height must be an integer and bigger than one"
+            type(value) == int and value > 1 and value % 2 == 0
+        ), "screen height must be an integer, bigger than one and divisible by 2"
         self._screen_height = value
         self.__setup_render = False
-
-
-if __name__ == "__main__":
-    env = RubicksCubeEnv()
-
-    i = 0
-    while True:
-        env.render()
-        env.step(np.random.randint(18))
-        # env.step(12)
-        i = (i + 1) % 18

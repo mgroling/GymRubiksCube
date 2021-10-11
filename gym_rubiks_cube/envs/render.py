@@ -1,8 +1,9 @@
 import numpy as np
-from functions import RotationMatrix3D, getQuadrant
-import objects3D as o3
 from typing import List, Tuple
 from numba import njit, prange
+
+from gym_rubiks_cube.envs.functions import RotationMatrix3D, getQuadrant
+import gym_rubiks_cube.envs.objects3D as o3
 
 
 @njit

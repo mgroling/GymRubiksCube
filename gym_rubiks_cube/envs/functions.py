@@ -24,7 +24,7 @@ class Sphere:
 
     def __init__(self, radius) -> None:
         self.radius = radius
-        self.current_pos = [90, 0]
+        self.current_pos = [90, -90]
 
     def rotate(self, x, y):
         self.current_pos[0] = (self.current_pos[0] + x) % 360
