@@ -20,7 +20,7 @@ def reconstruct_path(v, visited_nodes):
     return actions
 
 
-def solveCube(initial_state):
+def solveCubeBFS(initial_state):
     transform = TransformCubeObject()
     visited_nodes = {initial_state.tobytes(): (None, None)}
     queue = []
@@ -52,7 +52,7 @@ if __name__ == "__main__":
 
     obs = env.reset()
 
-    actions = solveCube(obs)
+    actions = solveCubeBFS(obs)
 
     transform = TransformCubeObject()
 
