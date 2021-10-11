@@ -4,6 +4,12 @@ This is an [OpenAi gym environment](https://gym.openai.com/) for the popular com
 
 ![RubiksCubeAnimation](/img/rubiksCubeAnimation.gif)
 
+## Action and Observation Space
+
+Action space: Discrete(18)
+
+Observation space: (54,) np.ndarray with values 0 to 5 representing the colors
+
 ## Content
 
 - Gym environment for the Rubik's Cube (3x3x3)
