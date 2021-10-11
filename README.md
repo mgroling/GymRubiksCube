@@ -6,9 +6,9 @@ This is an [OpenAi gym environment](https://gym.openai.com/) for the popular com
 
 ## Installation and Usage
 
-  git clone https://github.com/marc131183/GymRubiksCube.git
-  cd GymRubiksCube
-  pip3 install -e .
+    git clone https://github.com/marc131183/GymRubiksCube.git
+    cd GymRubiksCube
+    pip3 install -e .
   
 Example Usage can be found [here](https://github.com/marc131183/GymRubiksCube/blob/main/experiments/example.py).
 
