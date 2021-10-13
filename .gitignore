@@ -7,3 +7,4 @@
 build/
 dist/
 rubiksCubeEnv.egg-info/
+GymRubiksCube.egg-info/

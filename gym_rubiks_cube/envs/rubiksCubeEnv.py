@@ -244,7 +244,7 @@ class RubiksCubeEnv(gym.Env):
             400,
             (50, 50, 50),
         )
-        self._sphere = Sphere(800)
+        self._sphere = Sphere(1200)
         self._look_point = np.array([0, 0, 0])
 
         pygame.init()
