@@ -101,7 +101,6 @@ class RubiksCubeEnv(gym.Env):
         self.color_vector = None
         self.transform = None
         self.structure = None
-        self.scramble_params = None  # number of random steps to do when scrambling
         self._done = False
 
         # variables for rendering
@@ -114,8 +113,12 @@ class RubiksCubeEnv(gym.Env):
         self._screen_width = 600
         self._screen_height = 600
         self._delta_theta, self._delta_phi = None, None
+        self._time_last_frame = None
+        self._rotation_step = 5
 
+        # public variables
         self.cap_fps = 10
+        self.scramble_params = None  # number of random steps to do when scrambling
 
         self.action_space = gym.spaces.Discrete(18)
         self.observation_space = gym.spaces.Box(
@@ -160,7 +163,7 @@ class RubiksCubeEnv(gym.Env):
             index = action % 6 // 2
             # rotate either counter-clockwise or clockwise (if action % 2 == 0 -> counter-clockwise, else clockwise)
             flip_axis = action % 2
-            step_rot = 5 if action % 2 == 0 else -5
+            step_rot = self.rotation_step if action % 2 == 0 else -self.rotation_step
 
             # show animation of doing a rotation
             for _ in range(0, 90, abs(step_rot)):
@@ -244,7 +247,7 @@ class RubiksCubeEnv(gym.Env):
             400,
             (50, 50, 50),
         )
-        self._sphere = Sphere(1200)
+        self._sphere = Sphere((1 / min(self.screen_width, self.screen_height)) * 500000)
         self._look_point = np.array([0, 0, 0])
 
         pygame.init()
@@ -259,8 +262,6 @@ class RubiksCubeEnv(gym.Env):
             self._setup_render()
             self.__setup_render = True
 
-        cur_time = time.time()
-
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
@@ -268,13 +269,13 @@ class RubiksCubeEnv(gym.Env):
             # key pressed
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_UP or event.key == pygame.K_w:
-                    self._delta_theta = -3
+                    self._delta_theta = -1
                 elif event.key == pygame.K_DOWN or event.key == pygame.K_s:
-                    self._delta_theta = 3
+                    self._delta_theta = 1
                 elif event.key == pygame.K_RIGHT or event.key == pygame.K_d:
-                    self._delta_phi = 3
+                    self._delta_phi = 1
                 elif event.key == pygame.K_LEFT or event.key == pygame.K_a:
-                    self._delta_phi = -3
+                    self._delta_phi = -1
             # key released
             elif event.type == pygame.KEYUP:
                 if (
@@ -296,7 +297,9 @@ class RubiksCubeEnv(gym.Env):
             elif event.type == pygame.MOUSEWHEEL:
                 self._sphere.radius -= event.y * 20
 
-        pov = self._sphere.rotate(self._delta_theta, self._delta_phi)
+        pov = self._sphere.rotate(
+            self._delta_theta * 35 / self.cap_fps, self._delta_phi * 35 / self.cap_fps
+        )
         color_map = self._scene.render(pov, self._look_point)
         img = Image.fromarray(color_map, mode="RGB")
         img = img.resize(
@@ -305,19 +308,23 @@ class RubiksCubeEnv(gym.Env):
         img = np.array(img)
         pygame.surfarray.blit_array(self._dis, img)
 
-        time_passed = time.time() - cur_time
-        text_surface = self._font.render(
-            "FPS {}".format(min(int(1 / time_passed), self.cap_fps)),
-            False,
-            (255, 255, 255),
-        )
-        self._dis.blit(text_surface, (10, 10))
+        if self._time_last_frame != None:
+            time_passed = time.time() - self._time_last_frame
+            text_surface = self._font.render(
+                "FPS {}".format(min(int(1 / time_passed), self.cap_fps)),
+                False,
+                (255, 255, 255),
+            )
+            self._dis.blit(text_surface, (10, 10))
 
         pygame.display.update()
 
-        wait = 1 / self.cap_fps - time_passed
-        if wait > 0:
-            time.sleep(wait)
+        if self._time_last_frame != None:
+            wait = 1 / self.cap_fps - time_passed
+            if wait > 0:
+                time.sleep(wait)
+
+        self._time_last_frame = time.time()
 
     def close(self) -> None:
         if self.__setup_render:
@@ -353,3 +360,14 @@ class RubiksCubeEnv(gym.Env):
         ), "screen height must be an integer, bigger than one and divisible by 2"
         self._screen_height = value
         self.__setup_render = False
+
+    @property
+    def rotation_step(self) -> int:
+        return self._rotation_step
+
+    @rotation_step.setter
+    def rotation_step(self, value):
+        assert (
+            type(value) == int and 90 % value == 0 and value > 0
+        ), "rotation step must be an integer, bigger than 0 and divide 90"
+        self._rotation_step = value
