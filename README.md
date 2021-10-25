@@ -6,6 +6,8 @@ This is an [OpenAi gym environment](https://gym.openai.com/) for the popular com
 
 ## Installation and Usage
 
+Tested on Ubuntu 20.04.
+
     git clone https://github.com/marc131183/GymRubiksCube.git
     cd GymRubiksCube
     pip3 install -e .
