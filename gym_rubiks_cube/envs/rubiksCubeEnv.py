@@ -101,7 +101,7 @@ class RubiksCubeEnv(gym.Env):
         self.color_vector = None
         self.transform = None
         self.structure = None
-        self._done = False
+        self._done = None
 
         # variables for rendering
         self.__setup_render = False
@@ -143,6 +143,7 @@ class RubiksCubeEnv(gym.Env):
             [[j for _ in range(9)] for j in range(6)]
         ).flatten()
         self.transform = TransformCubeObject()
+        self._done = False
 
         self.scramble()
 
@@ -181,7 +182,7 @@ class RubiksCubeEnv(gym.Env):
                     )
                 self.render()
 
-            # update structure
+            # update render structure
             if axis == 0:
                 self.structure[index] = np.flip(self.structure[index].T, axis=flip_axis)
             elif axis == 1:

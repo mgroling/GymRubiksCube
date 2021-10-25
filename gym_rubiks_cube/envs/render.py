@@ -300,7 +300,7 @@ class Scene:
         canvas_vecX: np.ndarray,
         canvas_vecY: np.ndarray,
     ) -> np.ndarray:
-        # create vertices for each rectangle/triangle in 3D
+        # create vertices for each triangle in 3D
         tri_options = [(1, 0), (0, 1)]
         tri_vertices = np.empty((len(self.triangle_origins), 3, 3))
         tri_vertices[:, 0] = self.triangle_origins
@@ -314,7 +314,7 @@ class Scene:
         # now map these to 2D
         # create vector going from each vertex to the pov
         rays_to_pov_tri = pov[np.newaxis, np.newaxis] - tri_vertices
-        # normalize them so we can use them as distance measure later
+        # normalize the ray direction, so we can use it as distance measure later
         rays_to_pov_tri = (
             rays_to_pov_tri / np.linalg.norm(rays_to_pov_tri, axis=2)[:, :, np.newaxis]
         )[:, :, :, np.newaxis]
@@ -348,7 +348,7 @@ class Scene:
 
         # append (non infinity-element) in the end, in order to see if all values would be infinity, then we render the background color
         # assume that this is the biggest element (distance of an object would need to be greater than it (which shouldn't ever happen))
-        max_plus1 = np.ones((self.width, self.height)) * 100000
+        max_plus1 = np.ones((self.width, self.height)) * 1e10
         object_map[-1] = max_plus1
 
         colors = np.array(self.triangle_fill_colors + [self.bg_color], dtype=np.uint8)
