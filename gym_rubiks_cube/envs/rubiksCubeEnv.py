@@ -117,6 +117,8 @@ class RubiksCubeEnv(gym.Env):
         self._rotation_step = 5
 
         # public variables
+        self.max_steps = None
+        self.steps_since_reset = None
         self.cap_fps = 10
         self.scramble_params = None  # number of random steps to do when scrambling
 
@@ -144,6 +146,7 @@ class RubiksCubeEnv(gym.Env):
         ).flatten()
         self.transform = TransformCubeObject()
         self._done = False
+        self.steps_since_reset = 0
 
         self.scramble()
 
@@ -194,10 +197,18 @@ class RubiksCubeEnv(gym.Env):
                     self.structure[:, :, index].T, axis=1 - flip_axis
                 )
 
+        self.steps_since_reset += 1
+
         if self.isSolved():
             self._done = True
+            reward = 1
+        elif self.max_steps != None and self.steps_since_reset >= self.max_steps:
+            self._done = True
+            reward = 0
+        else:
+            reward = 0
 
-        return self.color_vector, 1 if self._done else 0, self._done, {}
+        return self.color_vector, reward, self._done, {}
 
     def _setup_render(self) -> None:
         # structure: row = 0 is top layer, row = 1 is middle layer, row = 2 is top layer
