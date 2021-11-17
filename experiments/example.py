@@ -18,6 +18,7 @@ if __name__ == "__main__":
 
     env.cap_fps = 10  # env assumes that you are close to this fps (controls might be weird if it's too far away from it)
     env.rotation_step = 5  # higher values makes the animation of rotating take less frames and vice versa, =90 rotations aren't animated
+    env.max_steps = 50  # number of steps after the environment will return done = False, default None
 
     model = RandomAgent()
 
