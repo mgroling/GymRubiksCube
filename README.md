@@ -27,13 +27,18 @@ Tested on Ubuntu 20.04.
     if __name__ == "__main__":
         env = gym.make("RubiksCube-v0")
 
-        env.scramble_params = 20  # number of random actions to do for scrambling (called in reset), =0 don't scramble the cube
+        env.scramble_params = 20  # number of random actions to do for scrambling (called in reset)
+        # =0 don't scramble the cube
 
         env.screen_width = 600  # you can reduce the screen size if FPS are too low
         env.screen_height = 600
 
-        env.cap_fps = 10  # env assumes that you are close to this fps (controls might be weird if it's too far away from it)
-        env.rotation_step = 5  # higher values makes the animation of rotating take less frames and vice versa, =90 rotations aren't animated
+        env.cap_fps = 10  # env assumes that you are close to this fps
+        # (controls might be weird if it's too far away from it)
+        
+        env.rotation_step = 5  # higher values makes the animation of rotating take less frames and vice versa
+        # =90 rotations aren't animated
+        env.max_steps = 50  # number of steps after the environment will return done = False, default None
 
         model = RandomAgent()
 
@@ -48,11 +53,13 @@ Tested on Ubuntu 20.04.
   
 Example Usage can also be found [here](https://github.com/marc131183/GymRubiksCube/blob/main/experiments/example.py).
 
-## Action and Observation Space
+## Action, Observation Space and Rewards
 
 Action space: Discrete(18)
 
 Observation space: (54,) np.ndarray with values of 0 to 5 representing the colors
+
+Rewards: a reward of 1 is given if the agent manages to solve the cube
 
 ## Content
 
