@@ -94,6 +94,10 @@ class TransformCubeObject:
     def __call__(self, current_state: np.ndarray, action: int) -> np.ndarray:
         return current_state[self.transformation_permutations[action]]
 
+    def isSolved(self, current_state: np.ndarray) -> bool:
+        temp = current_state.reshape((6, 9))
+        return (temp.max(axis=1) - temp.min(axis=1) == 0).all()
+
 
 class RubiksCubeEnv(gym.Env):
     def __init__(self) -> None:
@@ -119,6 +123,7 @@ class RubiksCubeEnv(gym.Env):
         # public variables
         self.max_steps = None
         self.steps_since_reset = None
+        # TODO: fix this, so it's automatic
         self.cap_fps = 10
         self.scramble_params = None  # number of random steps to do when scrambling
 
@@ -128,7 +133,7 @@ class RubiksCubeEnv(gym.Env):
         )
 
     def isSolved(self) -> bool:
-        return (self.color_vector == sorted(self.color_vector)).all()
+        return self.transform.isSolved(self.color_vector)
 
     def scramble(self) -> None:
         for _ in range(self.scramble_params if self.scramble_params != None else 50):

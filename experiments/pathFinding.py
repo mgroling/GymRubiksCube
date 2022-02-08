@@ -29,7 +29,7 @@ def solveCubeBFS(initial_state):
     j = 0
     while len(queue) > 0:
         v = queue[0]
-        if sum([v[i] > v[i + 1] for i in range(len(v) - 1)]) == 0:
+        if transform.isSolved(v):
             return reconstruct_path(v, visited_nodes)
 
         for i in range(18):
